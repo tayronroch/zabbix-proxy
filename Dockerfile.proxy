@@ -1,7 +1,7 @@
-# Dockerfile para Zabbix Proxy
+# Dockerfile para Zabbix Proxy (SQLite)
 FROM zabbix/zabbix-proxy-sqlite3:alpine-7.0-latest
 
-# Instalar dependências básicas primeiro
+# Instalar dependências básicas
 RUN apk update && \
     apk add --no-cache python3 py3-pip && \
     rm -rf /var/cache/apk/*
