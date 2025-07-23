@@ -39,6 +39,14 @@ RUN pip3 install --no-cache-dir \
     requests \
     netmiko
 
+# Criar diretórios necessários para o Zabbix Proxy
+RUN mkdir -p /run/zabbix && \
+    mkdir -p /var/log/zabbix && \
+    mkdir -p /var/lib/zabbix && \
+    chown -R zabbix:zabbix /run/zabbix && \
+    chown -R zabbix:zabbix /var/log/zabbix && \
+    chown -R zabbix:zabbix /var/lib/zabbix
+
 # Criar diretório de scripts externos
 RUN mkdir -p /usr/lib/zabbix/externalscripts
 
@@ -46,7 +54,8 @@ RUN mkdir -p /usr/lib/zabbix/externalscripts
 COPY scripts/ /usr/lib/zabbix/externalscripts/
 
 # Dar permissão de execução aos scripts
-RUN chmod +x /usr/lib/zabbix/externalscripts/*.py
+RUN chmod +x /usr/lib/zabbix/externalscripts/*.py && \
+    chown -R zabbix:zabbix /usr/lib/zabbix/externalscripts/
 
 # Expor porta do Zabbix Proxy
 EXPOSE 10051
