@@ -1,5 +1,5 @@
 # Dockerfile para Zabbix Proxy (SQLite) + Scripts SSH
-FROM zabbix/zabbix-proxy:ubuntu-latest
+FROM zabbix/zabbix-proxy:6.4-ubuntu
 
 # Instalar dependências com tratamento robusto de erros
 RUN set -ex; \
