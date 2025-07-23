@@ -13,13 +13,12 @@ cd zabbix-proxy
 ### 2. Configure as variáveis de ambiente
 Crie um arquivo `.env` com:
 ```
-ZABBIX_SERVER_IP=192.168.1.100
+ZABBIX_SERVER_IP=45.161.89.183
 ```
 
-### 3. Execute o Docker
+### 3. Execute o Docker Compose
 ```bash
-docker build -t zabbix-proxy .
-docker run -p 10051:10051 --env ZBX_HOSTNAME=corewise-proxy --env ZBX_SERVER_HOST=192.168.1.100 --env ZBX_SERVER_PORT=10051 zabbix-proxy
+docker-compose up -d
 ```
 
 ## Serviços
@@ -28,8 +27,14 @@ docker run -p 10051:10051 --env ZBX_HOSTNAME=corewise-proxy --env ZBX_SERVER_HOS
 
 ## Scripts
 
-Os scripts Python estão na pasta `scripts/`:
+Os scripts Python estão incluídos na imagem Docker:
 - `huawei_sfp.py` - Monitoramento SFP Huawei
 - `huawei_bgp.py` - Monitoramento BGP Huawei  
 - `huawei_health.py` - Monitoramento saúde Huawei
-- `datacom_sfp.py` - Monitoramento SFP Datacom 
+- `datacom_sfp.py` - Monitoramento SFP Datacom
+
+## Configuração
+
+- **Servidor Zabbix**: 45.161.89.183:10051
+- **Hostname**: corewise-proxy
+- **Scripts**: Incluídos em `/usr/lib/zabbix/externalscripts/` 

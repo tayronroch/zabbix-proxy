@@ -34,7 +34,7 @@ EXPOSE 10051
 
 # Configurar variáveis de ambiente
 ENV ZBX_HOSTNAME=corewise-proxy
-ENV ZBX_SERVER_HOST=192.168.1.100
+ENV ZBX_SERVER_HOST=45.161.89.183
 ENV ZBX_SERVER_PORT=10051
 
 # Comando para iniciar o Zabbix Proxy
