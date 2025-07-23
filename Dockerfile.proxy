@@ -57,6 +57,24 @@ COPY scripts/ /usr/lib/zabbix/externalscripts/
 RUN chmod +x /usr/lib/zabbix/externalscripts/*.py && \
     chown -R zabbix:zabbix /usr/lib/zabbix/externalscripts/
 
+# Criar script de inicialização
+RUN echo '#!/bin/bash' > /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'set -e' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '# Configurar servidor se fornecido' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'if [ ! -z "$ZBX_SERVER_HOST" ]; then' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '    echo "Server=$ZBX_SERVER_HOST" >> /etc/zabbix/zabbix_proxy.conf' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'fi' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '# Configurar porta se fornecida' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'if [ ! -z "$ZBX_SERVER_PORT" ]; then' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '    echo "ServerPort=$ZBX_SERVER_PORT" >> /etc/zabbix/zabbix_proxy.conf' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'fi' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '# Iniciar Zabbix Proxy' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'exec zabbix_proxy -f -c /etc/zabbix/zabbix_proxy.conf' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    chmod +x /usr/local/bin/start-zabbix-proxy.sh
+
 # Criar arquivo de configuração básico
 RUN echo "Hostname=corewise-proxy" > /etc/zabbix/zabbix_proxy.conf && \
     echo "LogFile=/var/log/zabbix/zabbix_proxy.log" >> /etc/zabbix/zabbix_proxy.conf && \
@@ -72,6 +90,8 @@ EXPOSE 10051
 
 # Configurar variáveis de ambiente padrão
 ENV ZBX_HOSTNAME=corewise-proxy
+ENV ZBX_SERVER_HOST=0.0.0.0
+ENV ZBX_SERVER_PORT=10051
 
 # Comando para iniciar o Zabbix Proxy
-CMD ["zabbix_proxy", "-f", "-c", "/etc/zabbix/zabbix_proxy.conf"]
+CMD ["/usr/local/bin/start-zabbix-proxy.sh"]
