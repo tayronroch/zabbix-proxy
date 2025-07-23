@@ -1,6 +1,6 @@
-# Zabbix Proxy + Sender - CoreWise
+# Zabbix Proxy + Scripts SSH - CoreWise
 
-Sistema de proxy Zabbix com Sender para monitoramento distribuído e coleta SSH.
+Sistema de proxy Zabbix com container de scripts SSH para monitoramento distribuído.
 
 ## Como Usar
 
@@ -24,13 +24,13 @@ docker-compose up -d
 ## Serviços
 
 - **zabbix-proxy**: Proxy Zabbix com SQLite na porta 10051
-- **zabbix-sender**: Sender com scripts SSH personalizados
+- **zabbix-scripts**: Container com scripts SSH personalizados
 
 ## Scripts
 
 Os scripts Python estão disponíveis em:
 - **Proxy**: `/usr/lib/zabbix/externalscripts/`
-- **Sender**: `/opt/corewise/scripts/`
+- **Scripts**: `/opt/corewise/scripts/`
 
 Scripts incluídos:
 - `huawei_sfp.py` - Monitoramento SFP Huawei
@@ -48,9 +48,9 @@ Scripts incluídos:
 ## Estrutura
 
 ```
-├── docker-compose.yaml     # Docker Compose com Proxy + Sender
+├── docker-compose.yaml     # Docker Compose com Proxy + Scripts
 ├── Dockerfile.proxy        # Build do Zabbix Proxy (SQLite)
-├── Dockerfile.sender       # Build do Zabbix Sender
+├── Dockerfile.sender       # Build do Container de Scripts SSH
 ├── scripts/                # Scripts Python SSH
 │   ├── huawei_sfp.py
 │   ├── huawei_bgp.py

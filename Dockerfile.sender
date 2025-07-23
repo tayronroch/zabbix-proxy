@@ -1,5 +1,5 @@
-# Dockerfile para Zabbix Sender com scripts personalizados
-FROM zabbix/zabbix-sender:alpine-7.0-latest
+# Dockerfile para Container com Scripts SSH
+FROM alpine:latest
 
 # Instalar dependências do sistema
 RUN apk add --no-cache \
