@@ -25,9 +25,9 @@ RUN set -ex; \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Adicionar repositório Zabbix e instalar Zabbix Proxy
+# Adicionar repositório Zabbix 7.0 LTS e instalar Zabbix Proxy
 RUN wget -O - https://repo.zabbix.com/zabbix-official-repo.key | apt-key add - && \
-    echo "deb https://repo.zabbix.com/zabbix/6.0/ubuntu $(lsb_release -cs) main" >> /etc/apt/sources.list.d/zabbix.list && \
+    echo "deb https://repo.zabbix.com/zabbix/7.0/ubuntu $(lsb_release -cs) main" >> /etc/apt/sources.list.d/zabbix.list && \
     apt-get update && \
     apt-get install -y zabbix-proxy-sqlite3 && \
     apt-get clean && \
