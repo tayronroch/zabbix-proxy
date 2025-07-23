@@ -16,15 +16,15 @@ Crie um arquivo `.env` com:
 ZABBIX_SERVER_IP=192.168.1.100
 ```
 
-### 3. Execute o Docker Compose
+### 3. Execute o Docker
 ```bash
-docker-compose -f docker-compose.proxy.yml up -d
+docker build -t zabbix-proxy .
+docker run -p 10051:10051 --env ZBX_HOSTNAME=corewise-proxy --env ZBX_SERVER_HOST=192.168.1.100 --env ZBX_SERVER_PORT=10051 zabbix-proxy
 ```
 
 ## Serviços
 
-- **zabbix-proxy**: Proxy Zabbix na porta 10051
-- **zabbix-sender**: Sender com scripts personalizados
+- **zabbix-proxy**: Proxy Zabbix na porta 10051 com scripts personalizados
 
 ## Scripts
 
