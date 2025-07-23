@@ -63,12 +63,11 @@ RUN echo '#!/bin/bash' > /usr/local/bin/start-zabbix-proxy.sh && \
     echo '' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo '# Configurar servidor se fornecido' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo 'if [ ! -z "$ZBX_SERVER_HOST" ]; then' >> /usr/local/bin/start-zabbix-proxy.sh && \
-    echo '    echo "Server=$ZBX_SERVER_HOST" >> /etc/zabbix/zabbix_proxy.conf' >> /usr/local/bin/start-zabbix-proxy.sh && \
-    echo 'fi' >> /usr/local/bin/start-zabbix-proxy.sh && \
-    echo '' >> /usr/local/bin/start-zabbix-proxy.sh && \
-    echo '# Configurar porta se fornecida' >> /usr/local/bin/start-zabbix-proxy.sh && \
-    echo 'if [ ! -z "$ZBX_SERVER_PORT" ]; then' >> /usr/local/bin/start-zabbix-proxy.sh && \
-    echo '    echo "ServerPort=$ZBX_SERVER_PORT" >> /etc/zabbix/zabbix_proxy.conf' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '    if [ ! -z "$ZBX_SERVER_PORT" ]; then' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '        echo "Server=$ZBX_SERVER_HOST:$ZBX_SERVER_PORT" >> /etc/zabbix/zabbix_proxy.conf' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '    else' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '        echo "Server=$ZBX_SERVER_HOST" >> /etc/zabbix/zabbix_proxy.conf' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '    fi' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo 'fi' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo '' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo '# Iniciar Zabbix Proxy' >> /usr/local/bin/start-zabbix-proxy.sh && \
