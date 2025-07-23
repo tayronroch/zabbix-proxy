@@ -57,13 +57,22 @@ COPY scripts/ /usr/lib/zabbix/externalscripts/
 RUN chmod +x /usr/lib/zabbix/externalscripts/*.py && \
     chown -R zabbix:zabbix /usr/lib/zabbix/externalscripts/
 
+# Criar arquivo de configuração básico
+RUN echo "Hostname=corewise-proxy" > /etc/zabbix/zabbix_proxy.conf && \
+    echo "LogFile=/var/log/zabbix/zabbix_proxy.log" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "PidFile=/run/zabbix/zabbix_proxy.pid" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "DBHost=localhost" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "DBName=/var/lib/zabbix/zabbix_proxy.db" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "DBUser=zabbix" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "ConfigFile=/etc/zabbix/zabbix_proxy.conf" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "ExternalScripts=/usr/lib/zabbix/externalscripts" >> /etc/zabbix/zabbix_proxy.conf && \
+    chown zabbix:zabbix /etc/zabbix/zabbix_proxy.conf
+
 # Expor porta do Zabbix Proxy
 EXPOSE 10051
 
-# Configurar variáveis de ambiente
+# Configurar variáveis de ambiente padrão
 ENV ZBX_HOSTNAME=corewise-proxy
-ENV ZBX_SERVER_HOST=45.161.89.183
-ENV ZBX_SERVER_PORT=10051
 
 # Comando para iniciar o Zabbix Proxy
-CMD ["zabbix_proxy", "-f"]
+CMD ["zabbix_proxy", "-f", "-c", "/etc/zabbix/zabbix_proxy.conf"]
