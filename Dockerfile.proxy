@@ -1,13 +1,11 @@
 # Dockerfile para Zabbix Proxy (SQLite)
 FROM zabbix/zabbix-proxy-sqlite3:alpine-7.0-latest
 
-# Instalar dependências básicas
-RUN apk update && \
-    apk add --no-cache python3 py3-pip && \
-    rm -rf /var/cache/apk/*
+# Instalar Python e pip
+RUN apk add --no-cache python3 py3-pip
 
 # Instalar bibliotecas Python
-RUN pip3 install --no-cache-dir paramiko requests netmiko
+RUN pip3 install paramiko requests netmiko
 
 # Criar diretório de scripts externos
 RUN mkdir -p /usr/lib/zabbix/externalscripts

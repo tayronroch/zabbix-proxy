@@ -1,34 +1,34 @@
 # Dockerfile para Container com Scripts SSH
-FROM alpine:latest
+FROM ubuntu:20.04
 
-# Instalar dependências do sistema
-RUN apk add --no-cache \
+# Evitar prompts interativos
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Instalar Python, dependências e zabbix-sender
+RUN apt-get update && apt-get install -y \
     python3 \
-    py3-pip \
+    python3-pip \
     openssh-client \
     curl \
-    bash \
-    snmp-utils \
-    dcron \
-    && rm -rf /var/cache/apk/*
+    wget \
+    gnupg2 \
+    && wget -O - https://repo.zabbix.com/zabbix-official-repo.key | apt-key add - \
+    && echo "deb https://repo.zabbix.com/zabbix/6.0/ubuntu focal main" >> /etc/apt/sources.list.d/zabbix.list \
+    && apt-get update \
+    && apt-get install -y zabbix-sender \
+    && rm -rf /var/lib/apt/lists/*
 
 # Instalar bibliotecas Python
-RUN pip3 install --no-cache-dir \
+RUN pip3 install \
     paramiko \
     requests \
     netmiko
 
-# Criar diretório para scripts personalizados
+# Criar diretório para scripts
 RUN mkdir -p /opt/corewise/scripts
-
-# Dar permissão de execução aos scripts
-RUN chmod +x /opt/corewise/scripts/*.py
-
-# Criar diretório para logs
-RUN mkdir -p /var/log/corewise
 
 # Configurar timezone
 ENV TZ=America/Sao_Paulo
 
-# Comando padrão - manter container rodando
+# Comando padrão
 CMD ["tail", "-f", "/dev/null"] 
