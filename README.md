@@ -24,13 +24,12 @@ docker-compose up -d
 ## Serviços
 
 - **zabbix-proxy**: Proxy Zabbix com SQLite na porta 10051
-- **zabbix-scripts**: Container com scripts SSH personalizados
+- **zabbix-scripts**: Container com scripts SSH personalizados + zabbix-sender
 
 ## Scripts
 
 Os scripts Python estão disponíveis em:
-- **Proxy**: `/usr/lib/zabbix/externalscripts/`
-- **Scripts**: `/opt/corewise/scripts/`
+- **Scripts**: `/opt/corewise/scripts/` (container separado)
 
 Scripts incluídos:
 - `huawei_sfp.py` - Monitoramento SFP Huawei
@@ -43,7 +42,7 @@ Scripts incluídos:
 - **Servidor Zabbix**: 45.161.89.183:10051
 - **Proxy Hostname**: corewise-proxy
 - **Database**: SQLite (incluído no proxy)
-- **Scripts SSH**: Disponíveis em ambos os containers
+- **Scripts SSH**: Container separado com zabbix-sender
 
 ## Estrutura
 

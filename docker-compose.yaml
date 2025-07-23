@@ -28,7 +28,7 @@ services:
     image: corewise-zabbix-scripts:latest
     container_name: corewise-zabbix-scripts
     environment:
-      ZBX_SERVER_HOST: zabbix-proxy
+      ZBX_SERVER_HOST: 45.161.89.183
       ZBX_SERVER_PORT: 10051
     volumes:
       - ./scripts:/opt/corewise/scripts:ro
