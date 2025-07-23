@@ -1,30 +1,22 @@
 # Dockerfile para Zabbix Proxy
 FROM zabbix/zabbix-proxy-sqlite3:alpine-7.0-latest
 
-# Instalar dependências Python
-RUN apk add --no-cache \
-    python3 \
-    py3-pip \
-    openssh-client \
-    curl \
-    bash \
-    snmp-utils \
-    dcron
+# Instalar dependências básicas primeiro
+RUN apk update && \
+    apk add --no-cache python3 py3-pip && \
+    rm -rf /var/cache/apk/*
 
 # Instalar bibliotecas Python
-RUN pip3 install --no-cache-dir \
-    paramiko \
-    requests \
-    netmiko
+RUN pip3 install --no-cache-dir paramiko requests netmiko
+
+# Criar diretório de scripts externos
+RUN mkdir -p /usr/lib/zabbix/externalscripts
 
 # Copiar scripts para o diretório de scripts externos
 COPY scripts/ /usr/lib/zabbix/externalscripts/
 
 # Dar permissão de execução aos scripts
 RUN chmod +x /usr/lib/zabbix/externalscripts/*.py
-
-# Criar diretório para logs
-RUN mkdir -p /var/log/corewise
 
 # Configurar timezone
 ENV TZ=America/Sao_Paulo
