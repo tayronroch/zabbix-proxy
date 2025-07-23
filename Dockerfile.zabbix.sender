@@ -1,0 +1,37 @@
+# Dockerfile para Zabbix Sender com scripts personalizados
+FROM zabbix/zabbix-sender:alpine-7.0-latest
+
+# Instalar dependências do sistema
+RUN apk add --no-cache \
+    python3 \
+    py3-pip \
+    openssh-client \
+    curl \
+    bash \
+    snmp-utils \
+    dcron \
+    && rm -rf /var/cache/apk/*
+
+# Instalar bibliotecas Python
+RUN pip3 install --no-cache-dir \
+    paramiko \
+    requests \
+    netmiko
+
+# Criar diretório para scripts personalizados
+RUN mkdir -p /opt/corewise/scripts
+
+# Copiar scripts para o diretório personalizado
+COPY scripts/ /opt/corewise/scripts/
+
+# Dar permissão de execução aos scripts
+RUN chmod +x /opt/corewise/scripts/*.py
+
+# Criar diretório para logs
+RUN mkdir -p /var/log/corewise
+
+# Configurar timezone
+ENV TZ=America/Sao_Paulo
+
+# Comando padrão - manter container rodando
+CMD ["tail", "-f", "/dev/null"] 
