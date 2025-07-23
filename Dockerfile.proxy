@@ -1,14 +1,11 @@
 # Dockerfile para Zabbix Proxy (SQLite) + Scripts SSH
-FROM zabbix/zabbix-proxy-sqlite3:ubuntu-7.0-latest
+FROM zabbix/zabbix-proxy-sqlite3:alpine-8.0-latest
 
-# Atualizar repositórios e instalar Python e dependências
-RUN apt-get update && apt-get install -y \
+# Instalar Python e dependências básicas
+RUN apk add --no-cache \
     python3 \
-    python3-pip \
-    openssh-client \
-    curl \
-    wget \
-    && rm -rf /var/lib/apt/lists/*
+    py3-pip \
+    openssh-client
 
 # Instalar bibliotecas Python
 RUN pip3 install --no-cache-dir \
