@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["docker-compose"]
+nixPkgs = ["docker-compose", "nodejs", "npm"]
 
 [start]
 cmd = "npm start" 

@@ -24,4 +24,8 @@ coverage.xml
 *.cover
 *.log
 .DS_Store
-Thumbs.db 
+Thumbs.db
+# Docker files
+Dockerfile
+Dockerfile.*
+docker-compose.*.yml 
