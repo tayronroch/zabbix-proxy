@@ -1,0 +1,12 @@
+{
+  "name": "zabbix-proxy",
+  "version": "1.0.0",
+  "description": "Zabbix Proxy para monitoramento distribuído",
+  "main": "index.js",
+  "scripts": {
+    "start": "docker-compose -f docker-compose.proxy.yml up -d"
+  },
+  "keywords": ["zabbix", "proxy", "monitoring"],
+  "author": "CoreWise",
+  "license": "MIT"
+} 

@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ["nodejs", "docker-compose"]
+
+[phases.install]
+cmds = ["npm install"]
+
+[phases.build]
+cmds = ["docker-compose -f docker-compose.proxy.yml build"]
+
+[start]
+cmd = "node index.js" 
