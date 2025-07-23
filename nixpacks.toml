@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ["docker-compose"]
+
+[phases.install]
+cmds = ["echo 'Docker Compose project - no additional installation needed'"]
+
+[phases.build]
+cmds = ["echo 'Building Docker Compose services...'", "docker-compose -f docker-compose.proxy.yml build"]
+
+[start]
+cmd = "docker-compose -f docker-compose.proxy.yml up -d" 
