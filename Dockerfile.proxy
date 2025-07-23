@@ -64,7 +64,6 @@ RUN echo "Hostname=corewise-proxy" > /etc/zabbix/zabbix_proxy.conf && \
     echo "DBHost=localhost" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "DBName=/var/lib/zabbix/zabbix_proxy.db" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "DBUser=zabbix" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "ConfigFile=/etc/zabbix/zabbix_proxy.conf" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "ExternalScripts=/usr/lib/zabbix/externalscripts" >> /etc/zabbix/zabbix_proxy.conf && \
     chown zabbix:zabbix /etc/zabbix/zabbix_proxy.conf
 
