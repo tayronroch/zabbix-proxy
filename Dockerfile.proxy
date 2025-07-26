@@ -61,12 +61,15 @@ RUN pip3 install --no-cache-dir \
     pysnmp
 
 # Configurar SNMP e baixar MIBs
-RUN echo "mibs +ALL" >> /etc/snmp/snmp.conf && \
-    echo "mibdirs /usr/share/snmp/mibs" >> /etc/snmp/snmp.conf && \
+RUN echo "mibdirs /usr/share/snmp/mibs" > /etc/snmp/snmp.conf && \
     echo "defVersion 2c" >> /etc/snmp/snmp.conf && \
     echo "defCommunity public" >> /etc/snmp/snmp.conf && \
     # Baixar MIBs padrão
     download-mibs && \
+    # Forçar a carga de MIBs essenciais primeiro
+    echo "mibdirs /usr/share/snmp/mibs" > /etc/snmp/snmp.conf.new && \
+    echo "mibs SNMPv2-SMI:SNMPv2-TC:INET-ADDRESS-MIB:IF-MIB:IP-MIB:TCP-MIB:UDP-MIB:HOST-RESOURCES-MIB:SNMP-FRAMEWORK-MIB:SNMP-COMMUNITY-MIB:SNMP-NOTIFICATION-MIB:SNMP-PROXY-MIB:SNMP-USER-BASED-SM-MIB:SNMP-VIEW-BASED-ACM-MIB:SNMP-MPD-MIB:SNMP-TARGET-MIB:SNMP-USM-MIB:SNMP-VACM-MIB:+ALL" >> /etc/snmp/snmp.conf.new && \
+    mv /etc/snmp/snmp.conf.new /etc/snmp/snmp.conf && \
     # Criar diretório para MIBs adicionais
     mkdir -p /usr/share/snmp/mibs/custom
 
