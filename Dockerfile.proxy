@@ -66,9 +66,21 @@ RUN echo "mibdirs /usr/share/snmp/mibs" > /etc/snmp/snmp.conf && \
     echo "defCommunity public" >> /etc/snmp/snmp.conf && \
     # Baixar MIBs padrão
     download-mibs && \
-    # Forçar a carga de MIBs essenciais primeiro
+    # Baixar MIBs fundamentais manualmente se necessário
+    cd /usr/share/snmp/mibs && \
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/SNMPv2-SMI.txt || true && \
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/SNMPv2-TC.txt || true && \
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/IF-MIB.txt || true && \
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/IP-MIB.txt || true && \
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/TCP-MIB.txt || true && \
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/UDP-MIB.txt || true && \
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/HOST-RESOURCES-MIB.txt || true && \
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/INET-ADDRESS-MIB.txt || true && \
+    # Configurar MIBs com ordem correta
     echo "mibdirs /usr/share/snmp/mibs" > /etc/snmp/snmp.conf.new && \
-    echo "mibs SNMPv2-SMI:SNMPv2-TC:INET-ADDRESS-MIB:IF-MIB:IP-MIB:TCP-MIB:UDP-MIB:HOST-RESOURCES-MIB:SNMP-FRAMEWORK-MIB:SNMP-COMMUNITY-MIB:SNMP-NOTIFICATION-MIB:SNMP-PROXY-MIB:SNMP-USER-BASED-SM-MIB:SNMP-VIEW-BASED-ACM-MIB:SNMP-MPD-MIB:SNMP-TARGET-MIB:SNMP-USM-MIB:SNMP-VACM-MIB:+ALL" >> /etc/snmp/snmp.conf.new && \
+    echo "defVersion 2c" >> /etc/snmp/snmp.conf.new && \
+    echo "defCommunity public" >> /etc/snmp/snmp.conf.new && \
+    echo "mibs +ALL" >> /etc/snmp/snmp.conf.new && \
     mv /etc/snmp/snmp.conf.new /etc/snmp/snmp.conf && \
     # Criar diretório para MIBs adicionais
     mkdir -p /usr/share/snmp/mibs/custom
