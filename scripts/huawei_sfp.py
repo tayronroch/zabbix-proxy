@@ -101,192 +101,161 @@ def parse_optical_output(output):
         values["volt"] = m.group(1)
     
     for i in range(4):
-        m = re.search(patterns["curr"][i], output)
-        if m:
-            values[f"curr{i+1}"] = m.group(1)
-        m = re.search(patterns["txpower"][i], output)
-        if m:
-            values[f"txpower{i+1}"] = m.group(1)
-        m = re.search(patterns["rxpower"][i], output)
-        if m:
-            values[f"rxpower{i+1}"] = m.group(1)
+        for key in ["curr", "txpower", "rxpower"]:
+            m = re.search(patterns[key][i], output)
+            if m:
+                values[f"{key}_{i}"] = m.group(1)
     
     return values
 
 def launch_discovery_original(ip, port, user, password, hostname):
-    """Discovery original - mantido para compatibilidade"""
-    try:
-        interfaces = get_interfaces(ip, port, user, password)
-        
-        discovery_data = []
-        for ifname, ifalias in interfaces.items():
-            discovery_data.append({
+    """Funcao original de discovery que funcionava - OTIMIZADO"""
+    interfaces = get_interfaces(ip, port, user, password)
+    discovery_gbic = []
+    discovery_tempvolt = []
+    
+    for ifname, ifalias in interfaces.items():
+        for lane in range(4):
+            discovery_gbic.append({
                 "{#IFNAME}": ifname,
-                "{#IFALIAS}": ifalias
+                "{#IFALIAS}": ifalias,
+                "{#GBIC_LANE}": f"Lane {lane}"
             })
-        
-        payload = json.dumps({"data": discovery_data}, separators=(',', ':'))
-        
-        # Envia discovery
-        result = subprocess.run([
-            "zabbix_sender", "-z", "127.0.0.1", "-s", hostname,
-            "-k", "huawei.sfp.discovery", "-o", payload
-        ], capture_output=True, text=True)
-        
-        if result.returncode == 0:
-            print(f"SUCCESS: Discovery enviado para {hostname}")
-            return True
-        else:
-            print(f"ERROR: Falha no discovery para {hostname}")
-            return False
-            
-    except Exception as e:
-        print(f"ERROR: {str(e)}")
-        return False
+        discovery_tempvolt.append({
+            "{#IFNAME}": ifname,
+            "{#IFALIAS}": ifalias
+        })
+    
+    # Discovery otimizado
+    subprocess.run([
+        "zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "discovery_gbic", 
+        "-o", json.dumps({"data": discovery_gbic})
+    ], capture_output=True, timeout=8)
+    
+    subprocess.run([
+        "zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "discovery_gbic_temp_volt", 
+        "-o", json.dumps({"data": discovery_tempvolt})
+    ], capture_output=True, timeout=8)
 
 def collect_original_optimized(ip, port, user, password, hostname):
-    """Coleta otimizada - versao final para producao"""
-    try:
-        interfaces = get_interfaces(ip, port, user, password)
-        
-        success_count = 0
-        error_count = 0
-        
-        for ifname, ifalias in interfaces.items():
-            try:
-                # Comando otimizado para Huawei
-                output = ssh_command_with_cache(ip, port, user, password, 
-                    f"display interface {ifname} transceiver verbose | no-more")
-                
-                values = parse_optical_output(output)
-                
-                # Envia metricas
-                for key, value in values.items():
-                    if send_zabbix_metric(hostname, f"huawei.sfp[{ifname},{key}]", value):
-                        success_count += 1
-                    else:
-                        error_count += 1
-                        
-            except Exception as e:
-                error_count += 1
-                print(f"ERROR: {ifname} - {str(e)}")
-        
-        print(f"SUCCESS: {success_count} metricas enviadas, {error_count} erros")
-        return success_count > 0
-        
-    except Exception as e:
-        print(f"ERROR: {str(e)}")
-        return False
+    """Funcao original de collect OTIMIZADA - versao final"""
+    start_time = time.time()
+    
+    # Reutiliza interfaces do cache se ja foram obtidas no discovery
+    interfaces = get_interfaces(ip, port, user, password)
+    
+    success_count = 0
+    error_count = 0
+
+    for ifname, ifalias in interfaces.items():
+        try:
+            # Usa cache para comandos de interface especifica
+            command = f"display optical-module extend information interface {ifname} | no-more"
+            output = ssh_command_with_cache(ip, port, user, password, command)
+            
+            values = parse_optical_output(output)
+
+            # Temp e volt (sem lane)
+            if "temp" in values:
+                if send_zabbix_metric(hostname, f"temp[{ifname}]", values["temp"]):
+                    success_count += 1
+                else:
+                    error_count += 1
+                    
+            if "volt" in values:
+                if send_zabbix_metric(hostname, f"volt[{ifname}]", values["volt"]):
+                    success_count += 1
+                else:
+                    error_count += 1
+            
+            # Curr, txpower, rxpower para cada Lane
+            for i in range(4):
+                lane_str = f"Lane {i}"
+                for key in ["curr", "txpower", "rxpower"]:
+                    value_key = f"{key}_{i}"
+                    if value_key in values:
+                        zabbix_key = f"{key}[{ifname},{lane_str}]"
+                        if send_zabbix_metric(hostname, zabbix_key, values[value_key]):
+                            success_count += 1
+                        else:
+                            error_count += 1
+                            
+        except Exception as e:
+            error_count += 1
+    
+    elapsed = time.time() - start_time
+    
+    return success_count, error_count, elapsed
 
 def launch_discovery_and_collect(ip, port, user, password, hostname):
-    """OTIMIZADO: Executa discovery + coleta em uma unica operacao"""
+    """Executa discovery e coleta OTIMIZADO - versao final para producao"""
     try:
-        print(f"🚀 Iniciando discovery + coleta para {hostname} ({ip})")
+        start_time = time.time()
         
-        # Obtem interfaces uma unica vez
-        interfaces = get_interfaces(ip, port, user, password)
+        # Limpa cache
+        clear_cache()
         
-        if not interfaces:
-            print(f"❌ Nenhuma interface 100GE encontrada em {hostname}")
-            return False
+        # Executa discovery original
+        launch_discovery_original(ip, port, user, password, hostname)
         
-        # Discovery
-        discovery_data = []
-        for ifname, ifalias in interfaces.items():
-            discovery_data.append({
-                "{#IFNAME}": ifname,
-                "{#IFALIAS}": ifalias
-            })
+        # Executa collect otimizado
+        success_count, error_count, collect_time = collect_original_optimized(ip, port, user, password, hostname)
         
-        payload = json.dumps({"data": discovery_data}, separators=(',', ':'))
+        elapsed = time.time() - start_time
         
-        # Envia discovery
-        discovery_result = subprocess.run([
-            "zabbix_sender", "-z", "127.0.0.1", "-s", hostname,
-            "-k", "huawei.sfp.discovery", "-o", payload
-        ], capture_output=True, text=True)
-        
-        # Coleta
-        success_count = 0
-        error_count = 0
-        
-        for ifname, ifalias in interfaces.items():
-            try:
-                output = ssh_command_with_cache(ip, port, user, password, 
-                    f"display interface {ifname} transceiver verbose | no-more")
-                
-                values = parse_optical_output(output)
-                
-                for key, value in values.items():
-                    if send_zabbix_metric(hostname, f"huawei.sfp[{ifname},{key}]", value):
-                        success_count += 1
-                    else:
-                        error_count += 1
-                        
-            except Exception as e:
-                error_count += 1
-                print(f"❌ {ifname}: {str(e)}")
-        
-        # Resultado final
-        if discovery_result.returncode == 0 and error_count == 0:
-            print(f"✅ SUCCESS: Discovery + {success_count} metricas enviadas")
-            return True
-        elif discovery_result.returncode != 0:
-            print(f"❌ ERROR: Falha no discovery")
-            return False
+        # Feedback conciso de performance
+        total = success_count + error_count
+        if error_count == 0:
+            print("SUCESSO: Discovery e coleta executados com sucesso!")
+            print(f"Metricas: {success_count} processadas em {elapsed:.1f}s")
         else:
-            print(f"⚠️ PARCIAL: Discovery OK, {error_count} metricas falharam")
-            return success_count > 0
-            
+            print(f"PARCIAL: {error_count} falhas de {total} metricas total em {elapsed:.1f}s")
+        
     except Exception as e:
-        print(f"❌ ERROR: {str(e)}")
-        return False
+        print(f"ERRO: Falha na execucao do processo - {str(e)}", file=sys.stderr)
+    finally:
+        clear_cache()
 
 def collect(ip, port, user, password, hostname):
-    """Mantido para compatibilidade - executa apenas coleta"""
-    return collect_original_optimized(ip, port, user, password, hostname)
+    """Funcao de collect para compatibilidade - OTIMIZADA"""
+    try:
+        clear_cache()
+        
+        success_count, error_count, elapsed = collect_original_optimized(ip, port, user, password, hostname)
+        
+        total = success_count + error_count
+        if error_count == 0:
+            print("SUCESSO: Coleta executada com sucesso!")
+            print(f"Metricas: {success_count} processadas em {elapsed:.1f}s")
+        else:
+            print(f"PARCIAL: {error_count} falhas de {total} metricas total em {elapsed:.1f}s")
+        
+    except Exception as e:
+        print(f"ERRO: Falha na execucao do processo - {str(e)}", file=sys.stderr)
+    finally:
+        clear_cache()
 
 def main():
-    if len(sys.argv) < 5:
-        print("Usage: huawei_sfp.py <launch_discovery|collect> <ip> <port> <user> <password> [hostname]")
+    if len(sys.argv) < 2:
+        print("Uso: huawei_sfp.py <launch_discovery|collect> <ip> <port> <user> <password> <hostname>", file=sys.stderr)
         sys.exit(1)
     
-    action = sys.argv[1]
-    ip = sys.argv[2]
-    
-    # Tratar macro não resolvida para porta SSH
-    port_str = sys.argv[3]
-    if port_str.startswith('{$') and port_str.endswith('}'):
-        print(f"WARNING: Macro não resolvida: {port_str}")
-        print("Usando porta padrão SSH (22)")
-        port = 22
+    mode = sys.argv[1]
+    if mode == "launch_discovery":
+        if len(sys.argv) != 7:
+            print("Uso: huawei_sfp.py launch_discovery <ip> <port> <user> <password> <hostname>", file=sys.stderr)
+            sys.exit(1)
+        _, _, ip, port, user, password, hostname = sys.argv
+        launch_discovery_and_collect(ip, int(port), user, password, hostname)
+    elif mode == "collect":
+        if len(sys.argv) != 7:
+            print("Uso: huawei_sfp.py collect <ip> <port> <user> <password> <hostname>", file=sys.stderr)
+            sys.exit(1)
+        _, _, ip, port, user, password, hostname = sys.argv
+        collect(ip, int(port), user, password, hostname)
     else:
-        try:
-            port = int(port_str)
-        except ValueError:
-            print(f"ERROR: Porta inválida: {port_str}")
-            print("Usando porta padrão SSH (22)")
-            port = 22
-    
-    user = sys.argv[4]
-    password = sys.argv[5]
-    
-    # Hostname é opcional - usar IP como fallback
-    if len(sys.argv) >= 7:
-        hostname = sys.argv[6]
-    else:
-        hostname = ip
-        print(f"WARNING: Hostname não fornecido, usando IP: {hostname}")
-    
-    print(f"🔧 Configuração: IP={ip}, Porta={port}, User={user}, Host={hostname}")
-    
-    if action == "launch_discovery":
-        launch_discovery_and_collect(ip, port, user, password, hostname)
-    elif action == "collect":
-        collect(ip, port, user, password, hostname)
-    else:
-        print("Unknown action")
-        sys.exit(1)
+        print("ERRO: Modo desconhecido. Use launch_discovery ou collect.", file=sys.stderr)
+        sys.exit(2)
 
 if __name__ == "__main__":
-    main() 
+    main()
