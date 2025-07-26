@@ -247,8 +247,8 @@ def collect(ip, port, user, password, hostname):
     return collect_original_optimized(ip, port, user, password, hostname)
 
 def main():
-    if len(sys.argv) < 6:
-        print("Usage: huawei_sfp.py <launch_discovery|collect> <ip> <port> <user> <password> <hostname>")
+    if len(sys.argv) < 5:
+        print("Usage: huawei_sfp.py <launch_discovery|collect> <ip> <port> <user> <password> [hostname]")
         sys.exit(1)
     
     action = sys.argv[1]
@@ -270,7 +270,13 @@ def main():
     
     user = sys.argv[4]
     password = sys.argv[5]
-    hostname = sys.argv[6]
+    
+    # Hostname é opcional - usar IP como fallback
+    if len(sys.argv) >= 7:
+        hostname = sys.argv[6]
+    else:
+        hostname = ip
+        print(f"WARNING: Hostname não fornecido, usando IP: {hostname}")
     
     print(f"🔧 Configuração: IP={ip}, Porta={port}, User={user}, Host={hostname}")
     
