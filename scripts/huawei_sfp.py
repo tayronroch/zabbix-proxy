@@ -253,10 +253,26 @@ def main():
     
     action = sys.argv[1]
     ip = sys.argv[2]
-    port = int(sys.argv[3])
+    
+    # Tratar macro não resolvida para porta SSH
+    port_str = sys.argv[3]
+    if port_str.startswith('{$') and port_str.endswith('}'):
+        print(f"WARNING: Macro não resolvida: {port_str}")
+        print("Usando porta padrão SSH (22)")
+        port = 22
+    else:
+        try:
+            port = int(port_str)
+        except ValueError:
+            print(f"ERROR: Porta inválida: {port_str}")
+            print("Usando porta padrão SSH (22)")
+            port = 22
+    
     user = sys.argv[4]
     password = sys.argv[5]
     hostname = sys.argv[6]
+    
+    print(f"🔧 Configuração: IP={ip}, Porta={port}, User={user}, Host={hostname}")
     
     if action == "launch_discovery":
         launch_discovery_and_collect(ip, port, user, password, hostname)
