@@ -107,7 +107,8 @@ RUN echo "mibdirs /usr/share/snmp/mibs" > /etc/snmp/snmp.conf && \
     echo "mibdirs /usr/share/snmp/mibs" > /etc/snmp/snmp.conf.new && \
     echo "defVersion 2c" >> /etc/snmp/snmp.conf.new && \
     echo "defCommunity public" >> /etc/snmp/snmp.conf.new && \
-    echo "mibs SNMPv2-SMI:SNMPv2-TC:INET-ADDRESS-MIB:IPV6-TC:IANA-RTPROTO-MIB:IF-MIB:IP-MIB:TCP-MIB:UDP-MIB:HOST-RESOURCES-MIB:+ALL" >> /etc/snmp/snmp.conf.new && \
+    echo "mibs SNMPv2-SMI:SNMPv2-TC:INET-ADDRESS-MIB:IPV6-TC:IANA-RTPROTO-MIB:IF-MIB:IP-MIB:TCP-MIB:UDP-MIB:HOST-RESOURCES-MIB" >> /etc/snmp/snmp.conf.new && \
+    echo "mibs +ALL" >> /etc/snmp/snmp.conf.new && \
     mv /etc/snmp/snmp.conf.new /etc/snmp/snmp.conf && \
     # Criar diretório para MIBs adicionais
     mkdir -p /usr/share/snmp/mibs/custom
