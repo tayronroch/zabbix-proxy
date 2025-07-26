@@ -90,6 +90,17 @@ RUN echo "mibdirs /usr/share/snmp/mibs" > /etc/snmp/snmp.conf && \
     wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/SNMP-VACM-MIB.txt || true && \
     wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/HOST-RESOURCES-TYPES.txt || true && \
     wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/HCNUM-TC.txt || true && \
+    # Baixar MIBs opcionais para eliminar warnings
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/NOTIFICATION-LOG-MIB.txt || true && \
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/DISMAN-EVENT-MIB.txt || true && \
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/DISMAN-SCHEDULE-MIB.txt || true && \
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/MTA-MIB.txt || true && \
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/NETWORK-SERVICES-MIB.txt || true && \
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/IPV6-ICMP-MIB.txt || true && \
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/IPV6-MIB.txt || true && \
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/IPV6-TCP-MIB.txt || true && \
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/IPV6-UDP-MIB.txt || true && \
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/IP-FORWARD-MIB.txt || true && \
     # Configurar MIBs com ordem correta
     echo "mibdirs /usr/share/snmp/mibs" > /etc/snmp/snmp.conf.new && \
     echo "defVersion 2c" >> /etc/snmp/snmp.conf.new && \
