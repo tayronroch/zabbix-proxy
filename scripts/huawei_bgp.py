@@ -100,209 +100,145 @@ def parse_uptime_to_hours(uptime_str):
     return round(total_hours, 2)
 
 def bgp_state_to_num(state_str):
-    state_map = {
-        "Idle": 0,
-        "Connect": 1,
-        "Active": 2,
-        "OpenSent": 3,
-        "OpenConfirm": 4,
-        "Established": 5
+    mapping = {
+        "Idle": 1,
+        "Connect": 2,
+        "Active": 3,
+        "OpenSent": 4,
+        "OpenConfirm": 5,
+        "Established": 6
     }
-    return state_map.get(state_str, -1)
+    return mapping.get(state_str, 0)
 
 def launch_discovery_original(host, port, user, password, zabbix_host):
-    """Discovery original - mantido para compatibilidade"""
+    """Funcao original de discovery que funcionava - com cache otimizado"""
     try:
-        output = run_ssh_command(host, port, user, password, "display bgp peer")
-        peers = extract_peers(output)
+        cmds_routes = [
+            ("display ipv6 routing-table statistics", "ipv6"),
+            ("display bgp ipv6 routing-table statistics", "bgp_ipv6"),
+            ("display ip routing-table statistics", "ipv4"),
+            ("display bgp routing-table statistics", "bgp_ipv4")
+        ]
+        values = {}
+        for cmd, tag in cmds_routes:
+            output = run_ssh_command(host, port, user, password, cmd)
+            if tag == "ipv6":
+                m = re.search(r"Summary Prefixes\s*:\s*(\d+)", output)
+                if m: values["hwIPv6RibRoutes"] = int(m.group(1))
+            elif tag == "bgp_ipv6":
+                m = re.search(r"Total Number of Routes:\s*(\d+)", output)
+                if m: values["hwIPv6FibRoutes"] = int(m.group(1))
+            elif tag == "ipv4":
+                m = re.search(r"Summary Prefixes\s*:\s*(\d+)", output)
+                if m: values["hwIPv4RibRoutes"] = int(m.group(1))
+            elif tag == "bgp_ipv4":
+                m = re.search(r"Total Number of Routes:\s*(\d+)", output)
+                if m: values["hwIPv4FibRoutes"] = int(m.group(1))
         
-        if not peers:
-            print(f"❌ Nenhum peer BGP encontrado em {host}")
-            return False
+        values["hwIPv4v6RibRoutes"] = values.get("hwIPv4RibRoutes",0) + values.get("hwIPv6RibRoutes",0)
+        values["hwIPv4v6FibRoutes"] = values.get("hwIPv4FibRoutes",0) + values.get("hwIPv6FibRoutes",0)
         
-        # Cria discovery data
-        discovery_data = {"data": peers}
-        payload = json.dumps(discovery_data, separators=(',', ':'))
-        
-        # Envia discovery
-        send_to_zabbix(zabbix_host, "huawei.bgp.discovery", payload, lld=True)
-        print(f"✅ Discovery enviado para {zabbix_host}: {len(peers)} peers")
-        return True
+        for key, val in values.items():
+            send_to_zabbix(zabbix_host, key, val)
+
+        all_peers = []
+        for cmd in ["display bgp ipv6 peer verbose | no-more", "display bgp peer verbose | no-more"]:
+            output = run_ssh_command(host, port, user, password, cmd)
+            all_peers += extract_peers(output)
+        lld_json = json.dumps({"data": all_peers}, ensure_ascii=False)
+        send_to_zabbix(zabbix_host, "bgpSessions", lld_json, lld=True)
         
     except Exception as e:
-        print(f"❌ ERROR: {str(e)}")
-        return False
+        raise Exception(f"Erro em discovery: {str(e)}")
 
 def collect_original(host, port, user, password, zabbix_host):
-    """Coleta original - versao final para producao"""
+    """Funcao original de collect que funcionava - com cache otimizado"""
     try:
-        output = run_ssh_command(host, port, user, password, "display bgp peer")
-        peers = extract_peers(output)
-        
-        if not peers:
-            print(f"❌ Nenhum peer BGP encontrado em {host}")
-            return False
-        
-        success_count = 0
-        error_count = 0
-        
-        for peer in peers:
-            peer_ip = peer["{#PEER}"]
-            desc = peer["{#DESCRIPTION}"]
-            
-            try:
-                # Obtem detalhes do peer
-                peer_output = run_ssh_command(host, port, user, password, f"display bgp peer {peer_ip}")
+        # Usa cache - comandos BGP ja executados no discovery
+        peers_discovered = []
+        for cmd in ["display bgp ipv6 peer verbose | no-more", "display bgp peer verbose | no-more"]:
+            output = run_ssh_command(host, port, user, password, cmd)  # Cache evita re-execucao
+            peers_discovered += extract_peers(output)
+        peer_set = set((p["{#DESCRIPTION}"], p["{#PEER}"]) for p in peers_discovered)
+
+        for cmd in ["display bgp ipv6 peer verbose | no-more", "display bgp peer verbose | no-more"]:
+            output = run_ssh_command(host, port, user, password, cmd)  # Cache evita re-execucao
+            peer_blocks = re.split(r"\n\s*BGP Peer is ", output)
+            for block in peer_blocks[1:]:
+                m = re.match(r"([^\s,]+)", block)
+                if not m:
+                    continue
+                peer_ip = m.group(1)
+                desc_m = re.search(r'Peer\'s description: "([^"]+)"', block)
+                if not desc_m:
+                    continue
+                description = desc_m.group(1)
+                if (description, peer_ip) not in peer_set:
+                    continue
+
+                state = re.search(r"BGP current state:\s*([^\s,]+)", block)
+                state_val = state.group(1) if state else ""
+
+                uptime = re.search(r"Up for ([^,]+)", block)
+                uptime_val = uptime.group(1) if uptime else ""
+
+                recv_routes = re.search(r"Received total routes:\s*(\d+)", block)
+                recv_routes_val = recv_routes.group(1) if recv_routes else "0"
+
+                adv_routes = re.search(r"Advertised total routes:\s*(\d+)", block)
+                adv_routes_val = adv_routes.group(1) if adv_routes else "0"
+
+                uptime_hours = parse_uptime_to_hours(uptime_val) if uptime_val else 0
+                state_num = bgp_state_to_num(state_val) if state_val else 0
+
+                send_to_zabbix(zabbix_host, f'bgpAdvRoutes["{description}",{peer_ip}]', adv_routes_val, use_shell_quotes=True)
+                send_to_zabbix(zabbix_host, f'BGPpeerRouter["{description}",{peer_ip}]', recv_routes_val, use_shell_quotes=True)
+                send_to_zabbix(zabbix_host, f'hwBgpPeerFsmEstablishedTime["{description}",{peer_ip}]', uptime_hours, use_shell_quotes=True)
+                send_to_zabbix(zabbix_host, f'hwBgpPeerState["{description}",{peer_ip}]', state_num, use_shell_quotes=True)
                 
-                # Parse estado
-                state_match = re.search(r"BGP current state\s*:\s*(\w+)", peer_output)
-                if state_match:
-                    state = state_match.group(1)
-                    state_num = bgp_state_to_num(state)
-                    if send_to_zabbix(zabbix_host, f"huawei.bgp.state[{peer_ip}]", state_num):
-                        success_count += 1
-                    else:
-                        error_count += 1
-                
-                # Parse uptime
-                uptime_match = re.search(r"BGP current state\s*:\s*\w+\s*,\s*Up for\s*([^,\n]+)", peer_output)
-                if uptime_match:
-                    uptime_str = uptime_match.group(1).strip()
-                    uptime_hours = parse_uptime_to_hours(uptime_str)
-                    if send_to_zabbix(zabbix_host, f"huawei.bgp.uptime[{peer_ip}]", uptime_hours):
-                        success_count += 1
-                    else:
-                        error_count += 1
-                
-                # Parse prefix count
-                prefix_match = re.search(r"Received routes\s*:\s*(\d+)", peer_output)
-                if prefix_match:
-                    prefix_count = int(prefix_match.group(1))
-                    if send_to_zabbix(zabbix_host, f"huawei.bgp.prefixes[{peer_ip}]", prefix_count):
-                        success_count += 1
-                    else:
-                        error_count += 1
-                        
-            except Exception as e:
-                error_count += 1
-                print(f"❌ Erro ao processar peer {peer_ip}: {str(e)}")
-        
-        print(f"✅ {success_count} metricas enviadas, {error_count} erros")
-        return success_count > 0
-        
     except Exception as e:
-        print(f"❌ ERROR: {str(e)}")
-        return False
+        raise Exception(f"Erro em collect: {str(e)}")
 
 def launch_discovery_and_collect(host, port, user, password, zabbix_host):
-    """OTIMIZADO: Executa discovery + coleta em uma unica operacao"""
+    """Executa discovery e coleta - VERSAO ROBUSTA"""
     try:
-        print(f"🚀 Iniciando discovery + coleta BGP para {zabbix_host} ({host})")
+        # Limpa cache
+        clear_cache()
+        print("Iniciando discovery...")
         
-        # Obtem dados uma unica vez
-        output = run_ssh_command(host, port, user, password, "display bgp peer")
-        peers = extract_peers(output)
+        # Executa discovery
+        launch_discovery_original(host, port, user, password, zabbix_host)
+        print("Discovery concluido. Iniciando coleta...")
         
-        if not peers:
-            print(f"❌ Nenhum peer BGP encontrado em {host}")
-            return False
+        # Executa collect (reutiliza comandos do cache)
+        collect_original(host, port, user, password, zabbix_host)
         
-        # Discovery
-        discovery_data = {"data": peers}
-        payload = json.dumps(discovery_data, separators=(',', ':'))
+        print("SUCESSO: Discovery e coleta executados com sucesso!")
         
-        # Envia discovery
-        try:
-            send_to_zabbix(zabbix_host, "huawei.bgp.discovery", payload, lld=True)
-            discovery_success = True
-        except Exception as e:
-            print(f"❌ Erro no discovery: {str(e)}")
-            discovery_success = False
-        
-        # Coleta
-        success_count = 0
-        error_count = 0
-        
-        for peer in peers:
-            peer_ip = peer["{#PEER}"]
-            desc = peer["{#DESCRIPTION}"]
-            
-            try:
-                # Obtem detalhes do peer
-                peer_output = run_ssh_command(host, port, user, password, f"display bgp peer {peer_ip}")
-                
-                # Parse estado
-                state_match = re.search(r"BGP current state\s*:\s*(\w+)", peer_output)
-                if state_match:
-                    state = state_match.group(1)
-                    state_num = bgp_state_to_num(state)
-                    if send_to_zabbix(zabbix_host, f"huawei.bgp.state[{peer_ip}]", state_num):
-                        success_count += 1
-                    else:
-                        error_count += 1
-                
-                # Parse uptime
-                uptime_match = re.search(r"BGP current state\s*:\s*\w+\s*,\s*Up for\s*([^,\n]+)", peer_output)
-                if uptime_match:
-                    uptime_str = uptime_match.group(1).strip()
-                    uptime_hours = parse_uptime_to_hours(uptime_str)
-                    if send_to_zabbix(zabbix_host, f"huawei.bgp.uptime[{peer_ip}]", uptime_hours):
-                        success_count += 1
-                    else:
-                        error_count += 1
-                
-                # Parse prefix count
-                prefix_match = re.search(r"Received routes\s*:\s*(\d+)", peer_output)
-                if prefix_match:
-                    prefix_count = int(prefix_match.group(1))
-                    if send_to_zabbix(zabbix_host, f"huawei.bgp.prefixes[{peer_ip}]", prefix_count):
-                        success_count += 1
-                    else:
-                        error_count += 1
-                        
-            except Exception as e:
-                error_count += 1
-                print(f"❌ Erro ao processar peer {peer_ip}: {str(e)}")
-        
-        # Resultado final
-        if discovery_success and error_count == 0:
-            print(f"✅ SUCCESS: Discovery + {success_count} metricas enviadas")
-            return True
-        elif not discovery_success:
-            print(f"❌ ERROR: Falha no discovery")
-            return False
-        else:
-            print(f"⚠️ PARCIAL: Discovery OK, {error_count} metricas falharam")
-            return success_count > 0
-            
     except Exception as e:
-        print(f"❌ ERROR: {str(e)}")
-        return False
+        print(f"ERRO: Falha na execucao do processo - {str(e)}", file=sys.stderr)
+    finally:
+        clear_cache()
 
 def collect(host, port, user, password, zabbix_host):
-    """Mantido para compatibilidade - executa apenas coleta"""
-    return collect_original(host, port, user, password, zabbix_host)
-
-def main():
-    if len(sys.argv) < 6:
-        print("Usage: huawei_bgp.py <launch_discovery|collect> <host> <port> <user> <password> <zabbix_host>")
-        sys.exit(1)
-    
-    action = sys.argv[1]
-    host = sys.argv[2]
-    port = int(sys.argv[3])
-    user = sys.argv[4]
-    password = sys.argv[5]
-    zabbix_host = sys.argv[6]
-    
-    if action == "launch_discovery":
-        launch_discovery_and_collect(host, port, user, password, zabbix_host)
-    elif action == "collect":
-        collect(host, port, user, password, zabbix_host)
-    else:
-        print("Unknown action")
-        sys.exit(1)
+    """Funcao de collect para compatibilidade"""
+    try:
+        collect_original(host, port, user, password, zabbix_host)
+        print("SUCESSO: Coleta executada com sucesso!")
+        
+    except Exception as e:
+        print(f"ERRO: Falha na execucao do processo - {str(e)}", file=sys.stderr)
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) < 7:
+        print("Usage: huawei_bgp.py <launch_discovery|collect> <host> <port> <user> <password> <zabbix_host>", file=sys.stderr)
+        sys.exit(1)
+    mode, host, port, user, password, zabbix_host = sys.argv[1:7]
+    if mode == "launch_discovery":
+        launch_discovery_and_collect(host, port, user, password, zabbix_host)
+    elif mode == "collect":
+        collect(host, port, user, password, zabbix_host)
+    else:
+        print("ERRO: Modo desconhecido. Use launch_discovery ou collect.", file=sys.stderr)
+        sys.exit(2)
         
