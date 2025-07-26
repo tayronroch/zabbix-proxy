@@ -82,14 +82,21 @@ def parse_uptime(version_output):
 
 def parse_ipu_temperature_full(temperature_output):
     result = []
-    slot = "9" # ajuste se slot dinamico
-    found_table = False
+    current_slot = "unknown" # Inicializa com unknown ou um valor padrão
+
     for line in temperature_output.splitlines():
+        # Tenta capturar o slot da linha "Base-Board, Unit:C, Slot X"
+        slot_match = re.search(r'Base-Board, Unit:C, Slot (\d+)', line)
+        if slot_match:
+            current_slot = slot_match.group(1)
+            continue # Pula para a próxima linha depois de encontrar o slot
+
         if re.match(r'PCB\s+I2C\s+Addr\s+Chl', line):
             found_table = True
             continue
         if not found_table or line.strip() == "" or line.startswith("-"):
             continue
+
         m = re.match(r'(\S+)\s+(\d+)\s+(\d+)\s+(\d+)\s+\S+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+(-?\d+)', line.strip())
         if m:
             board = m.group(1)
@@ -98,7 +105,7 @@ def parse_ipu_temperature_full(temperature_output):
             chl = m.group(4)
             temp = m.group(5)
             result.append({
-                "{#SLOT}": slot,
+                "{#SLOT}": current_slot, # Usa o slot dinâmico
                 "{#SENSOR_NAME}": board,
                 "{#I2C}": i2c,
                 "{#ADDR}": addr,
