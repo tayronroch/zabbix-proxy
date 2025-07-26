@@ -45,13 +45,13 @@ RUN set -ex; \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Adicionar repositório Zabbix 7.0 LTS e instalar Zabbix Proxy
+# Adicionar repositório Zabbix 7.0 LTS e instalar Zabbix Proxy + zabbix_sender
 RUN wget -O - https://repo.zabbix.com/zabbix-official-repo.key | apt-key add - && \
     echo "deb https://repo.zabbix.com/zabbix/7.0/ubuntu $(lsb_release -cs) main" >> /etc/apt/sources.list.d/zabbix.list && \
     apt-get update && \
-    apt-get install -y zabbix-proxy-sqlite3 && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    apt-get install -y zabbix-proxy-sqlite3 zabbix-sender && \
+    apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Instalar bibliotecas Python
 RUN pip3 install --no-cache-dir \
@@ -60,11 +60,15 @@ RUN pip3 install --no-cache-dir \
     netmiko \
     pysnmp
 
-# Configurar SNMP
+# Configurar SNMP e baixar MIBs
 RUN echo "mibs +ALL" >> /etc/snmp/snmp.conf && \
     echo "mibdirs /usr/share/snmp/mibs" >> /etc/snmp/snmp.conf && \
     echo "defVersion 2c" >> /etc/snmp/snmp.conf && \
-    echo "defCommunity public" >> /etc/snmp/snmp.conf
+    echo "defCommunity public" >> /etc/snmp/snmp.conf && \
+    # Baixar MIBs padrão
+    download-mibs && \
+    # Criar diretório para MIBs adicionais
+    mkdir -p /usr/share/snmp/mibs/custom
 
 # Criar diretórios necessários para o Zabbix Proxy
 RUN mkdir -p /run/zabbix && \
@@ -84,16 +88,32 @@ COPY scripts/ /usr/lib/zabbix/externalscripts/
 RUN chmod +x /usr/lib/zabbix/externalscripts/*.py && \
     chown -R zabbix:zabbix /usr/lib/zabbix/externalscripts/
 
-# Criar script de inicialização
+# Criar script de inicialização melhorado
 RUN echo '#!/bin/bash' > /usr/local/bin/start-zabbix-proxy.sh && \
     echo 'set -e' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo '' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo '# Log de inicialização' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo 'echo "$(date): Iniciando Zabbix Proxy..."' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo '' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '# Configurar DNS se necessário' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'if [ ! -z "$DNS_SERVER" ]; then' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '    echo "nameserver $DNS_SERVER" > /etc/resolv.conf' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'fi' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo '# Verificar conectividade de rede' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo 'echo "$(date): Verificando conectividade..."' >> /usr/local/bin/start-zabbix-proxy.sh && \
-    echo 'ping -c 1 8.8.8.8 >/dev/null 2>&1 && echo "Internet: OK" || echo "Internet: FAIL"' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'for i in {1..3}; do' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '    ping -c 1 8.8.8.8 >/dev/null 2>&1 && echo "Internet: OK" && break || echo "Tentativa $i: FAIL"' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '    sleep 5' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'done' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '# Verificar zabbix_sender' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'echo "$(date): Verificando zabbix_sender..."' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'which zabbix_sender && echo "zabbix_sender: OK" || echo "zabbix_sender: FALHA"' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '# Verificar MIBs SNMP' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'echo "$(date): Verificando MIBs SNMP..."' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'ls -la /usr/share/snmp/mibs/ | head -10' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo '' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo '# Configurar servidor se fornecido' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo 'if [ ! -z "$ZBX_SERVER_HOST" ]; then' >> /usr/local/bin/start-zabbix-proxy.sh && \
