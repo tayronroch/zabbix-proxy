@@ -22,6 +22,26 @@ RUN set -ex; \
         wget \
         gnupg2 \
         lsb-release \
+        # Ferramentas de debug e rede
+        iputils-ping \
+        net-tools \
+        telnet \
+        dnsutils \
+        traceroute \
+        nmap \
+        # Ferramentas SNMP
+        snmp \
+        snmp-mibs-downloader \
+        # Ferramentas de diagnóstico
+        tcpdump \
+        netcat \
+        htop \
+        vim \
+        less \
+        # Ferramentas de sistema
+        procps \
+        lsof \
+        strace \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -37,7 +57,14 @@ RUN wget -O - https://repo.zabbix.com/zabbix-official-repo.key | apt-key add - &
 RUN pip3 install --no-cache-dir \
     paramiko \
     requests \
-    netmiko
+    netmiko \
+    pysnmp
+
+# Configurar SNMP
+RUN echo "mibs +ALL" >> /etc/snmp/snmp.conf && \
+    echo "mibdirs /usr/share/snmp/mibs" >> /etc/snmp/snmp.conf && \
+    echo "defVersion 2c" >> /etc/snmp/snmp.conf && \
+    echo "defCommunity public" >> /etc/snmp/snmp.conf
 
 # Criar diretórios necessários para o Zabbix Proxy
 RUN mkdir -p /run/zabbix && \
@@ -61,6 +88,13 @@ RUN chmod +x /usr/lib/zabbix/externalscripts/*.py && \
 RUN echo '#!/bin/bash' > /usr/local/bin/start-zabbix-proxy.sh && \
     echo 'set -e' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo '' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '# Log de inicialização' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'echo "$(date): Iniciando Zabbix Proxy..."' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '# Verificar conectividade de rede' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'echo "$(date): Verificando conectividade..."' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'ping -c 1 8.8.8.8 >/dev/null 2>&1 && echo "Internet: OK" || echo "Internet: FAIL"' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo '# Configurar servidor se fornecido' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo 'if [ ! -z "$ZBX_SERVER_HOST" ]; then' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo '    if [ ! -z "$ZBX_SERVER_PORT" ]; then' >> /usr/local/bin/start-zabbix-proxy.sh && \
@@ -75,7 +109,12 @@ RUN echo '#!/bin/bash' > /usr/local/bin/start-zabbix-proxy.sh && \
     echo '    echo "Timeout=$ZBX_TIMEOUT" >> /etc/zabbix/zabbix_proxy.conf' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo 'fi' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo '' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '# Verificar scripts externos' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'echo "$(date): Verificando scripts externos..."' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'ls -la /usr/lib/zabbix/externalscripts/' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo '# Iniciar Zabbix Proxy' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'echo "$(date): Iniciando Zabbix Proxy..."' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo 'exec zabbix_proxy -f -c /etc/zabbix/zabbix_proxy.conf' >> /usr/local/bin/start-zabbix-proxy.sh && \
     chmod +x /usr/local/bin/start-zabbix-proxy.sh
 
