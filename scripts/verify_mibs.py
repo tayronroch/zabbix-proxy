@@ -15,13 +15,27 @@ def check_mib_files():
     
     fundamental_mibs = [
         "SNMPv2-SMI.txt",
-        "SNMPv2-TC.txt", 
+        "SNMPv2-TC.txt",
+        "SNMPv2-MIB.txt",
+        "SNMPv2-TM.txt",
         "IF-MIB.txt",
         "IP-MIB.txt",
         "TCP-MIB.txt",
         "UDP-MIB.txt",
         "HOST-RESOURCES-MIB.txt",
-        "INET-ADDRESS-MIB.txt"
+        "INET-ADDRESS-MIB.txt",
+        "IANAifType-MIB.txt",
+        "SNMP-FRAMEWORK-MIB.txt",
+        "SNMP-MPD-MIB.txt",
+        "SNMP-USER-BASED-SM-MIB.txt",
+        "SNMP-VIEW-BASED-ACM-MIB.txt",
+        "SNMP-COMMUNITY-MIB.txt",
+        "SNMP-NOTIFICATION-MIB.txt",
+        "SNMP-TARGET-MIB.txt",
+        "SNMP-USM-MIB.txt",
+        "SNMP-VACM-MIB.txt",
+        "HOST-RESOURCES-TYPES.txt",
+        "HCNUM-TC.txt"
     ]
     
     mib_dir = "/usr/share/snmp/mibs"
@@ -129,12 +143,26 @@ def download_missing_mibs():
     mib_urls = {
         "SNMPv2-SMI.txt": "https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/SNMPv2-SMI.txt",
         "SNMPv2-TC.txt": "https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/SNMPv2-TC.txt",
+        "SNMPv2-MIB.txt": "https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/SNMPv2-MIB.txt",
+        "SNMPv2-TM.txt": "https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/SNMPv2-TM.txt",
         "IF-MIB.txt": "https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/IF-MIB.txt",
         "IP-MIB.txt": "https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/IP-MIB.txt",
         "TCP-MIB.txt": "https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/TCP-MIB.txt",
         "UDP-MIB.txt": "https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/UDP-MIB.txt",
         "HOST-RESOURCES-MIB.txt": "https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/HOST-RESOURCES-MIB.txt",
-        "INET-ADDRESS-MIB.txt": "https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/INET-ADDRESS-MIB.txt"
+        "INET-ADDRESS-MIB.txt": "https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/INET-ADDRESS-MIB.txt",
+        "IANAifType-MIB.txt": "https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/IANAifType-MIB.txt",
+        "SNMP-FRAMEWORK-MIB.txt": "https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/SNMP-FRAMEWORK-MIB.txt",
+        "SNMP-MPD-MIB.txt": "https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/SNMP-MPD-MIB.txt",
+        "SNMP-USER-BASED-SM-MIB.txt": "https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/SNMP-USER-BASED-SM-MIB.txt",
+        "SNMP-VIEW-BASED-ACM-MIB.txt": "https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/SNMP-VIEW-BASED-ACM-MIB.txt",
+        "SNMP-COMMUNITY-MIB.txt": "https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/SNMP-COMMUNITY-MIB.txt",
+        "SNMP-NOTIFICATION-MIB.txt": "https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/SNMP-NOTIFICATION-MIB.txt",
+        "SNMP-TARGET-MIB.txt": "https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/SNMP-TARGET-MIB.txt",
+        "SNMP-USM-MIB.txt": "https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/SNMP-USM-MIB.txt",
+        "SNMP-VACM-MIB.txt": "https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/SNMP-VACM-MIB.txt",
+        "HOST-RESOURCES-TYPES.txt": "https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/HOST-RESOURCES-TYPES.txt",
+        "HCNUM-TC.txt": "https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/HCNUM-TC.txt"
     }
     
     mib_dir = "/usr/share/snmp/mibs"

@@ -66,16 +66,30 @@ RUN echo "mibdirs /usr/share/snmp/mibs" > /etc/snmp/snmp.conf && \
     echo "defCommunity public" >> /etc/snmp/snmp.conf && \
     # Baixar MIBs padrão
     download-mibs && \
-    # Baixar MIBs fundamentais manualmente se necessário
+    # Baixar MIBs fundamentais que estão faltando
     cd /usr/share/snmp/mibs && \
     wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/SNMPv2-SMI.txt || true && \
     wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/SNMPv2-TC.txt || true && \
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/SNMPv2-MIB.txt || true && \
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/SNMPv2-TM.txt || true && \
     wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/IF-MIB.txt || true && \
     wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/IP-MIB.txt || true && \
     wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/TCP-MIB.txt || true && \
     wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/UDP-MIB.txt || true && \
     wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/HOST-RESOURCES-MIB.txt || true && \
     wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/INET-ADDRESS-MIB.txt || true && \
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/IANAifType-MIB.txt || true && \
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/SNMP-FRAMEWORK-MIB.txt || true && \
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/SNMP-MPD-MIB.txt || true && \
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/SNMP-USER-BASED-SM-MIB.txt || true && \
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/SNMP-VIEW-BASED-ACM-MIB.txt || true && \
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/SNMP-COMMUNITY-MIB.txt || true && \
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/SNMP-NOTIFICATION-MIB.txt || true && \
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/SNMP-TARGET-MIB.txt || true && \
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/SNMP-USM-MIB.txt || true && \
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/SNMP-VACM-MIB.txt || true && \
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/HOST-RESOURCES-TYPES.txt || true && \
+    wget -q https://raw.githubusercontent.com/net-snmp/net-snmp/master/mibs/HCNUM-TC.txt || true && \
     # Configurar MIBs com ordem correta
     echo "mibdirs /usr/share/snmp/mibs" > /etc/snmp/snmp.conf.new && \
     echo "defVersion 2c" >> /etc/snmp/snmp.conf.new && \
