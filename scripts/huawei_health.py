@@ -98,250 +98,139 @@ def parse_ipu_temperature_full(temperature_output):
             chl = m.group(4)
             temp = m.group(5)
             result.append({
-                "board": board,
-                "i2c": i2c,
-                "addr": addr,
-                "chl": chl,
-                "temp": temp,
-                "slot": slot
+                "{#SLOT}": slot,
+                "{#SENSOR_NAME}": board,
+                "{#I2C}": i2c,
+                "{#ADDR}": addr,
+                "{#CHL}": chl,
+                "TEMP": temp
             })
     return result
 
-def send_zabbix_metric(hostname, key, value, timeout=5):
-    """Envia metrica individual para Zabbix"""
-    try:
-        result = subprocess.run([
-            "zabbix_sender", "-z", "127.0.0.1", "-s", hostname, 
-            "-k", key, "-o", str(value)
-        ], capture_output=True, timeout=timeout, text=True)
-        return result.returncode == 0
-    except Exception:
-        return False
-
 def launch_discovery_original(ip, port, user, password, hostname):
-    """Discovery original - mantido para compatibilidade"""
-    try:
-        # Obtem informacoes basicas
-        version_output = ssh_command(ip, port, user, password, "display version")
-        temperature_output = ssh_command(ip, port, user, password, "display environment")
-        
-        # Parse dados
-        version = parse_version(version_output)
-        temperatures = parse_ipu_temperature_full(temperature_output)
-        
-        # Cria discovery data
-        discovery_data = []
-        discovery_data.append({
-            "{#VERSION}": version,
-            "{#UPTIME}": parse_uptime(version_output)
+    """Funcao original de discovery que funcionava"""
+    command_temp = "display temperature ipu | no-more"
+    output_temp = ssh_command(ip, port, user, password, command_temp)
+    
+    ipu_list = []
+    full_sensors = parse_ipu_temperature_full(output_temp)
+    for entry in full_sensors:
+        ipu_list.append({
+            "{#SLOT}": entry["{#SLOT}"],
+            "{#SENSOR_NAME}": entry["{#SENSOR_NAME}"],
+            "{#I2C}": entry["{#I2C}"],
+            "{#ADDR}": entry["{#ADDR}"],
+            "{#CHL}": entry["{#CHL}"],
         })
-        
-        for temp in temperatures:
-            discovery_data.append({
-                "{#BOARD}": temp["board"],
-                "{#SLOT}": temp["slot"],
-                "{#TEMP}": temp["temp"]
-            })
-        
-        payload = json.dumps({"data": discovery_data}, separators=(',', ':'))
-        
-        # Envia discovery
-        result = subprocess.run([
-            "zabbix_sender", "-z", "127.0.0.1", "-s", hostname,
-            "-k", "huawei.health.discovery", "-o", payload
-        ], capture_output=True, text=True)
-        
-        if result.returncode == 0:
-            print(f"SUCCESS: Discovery enviado para {hostname}")
-            return True
-        else:
-            print(f"ERROR: Falha no discovery para {hostname}")
-            return False
-            
-    except Exception as e:
-        print(f"ERROR: {str(e)}")
-        return False
+    
+    subprocess.run([
+        "zabbix_sender", "-z", "127.0.0.1", "-s", hostname,
+        "-k", "temperatureInfo", "-o", json.dumps({"data": ipu_list})
+    ], capture_output=True, timeout=15)
 
 def collect_original(ip, port, user, password, hostname):
-    """Coleta original - versao final para producao"""
-    try:
-        # Obtem dados
-        cpu_output = ssh_command(ip, port, user, password, "display cpu-usage")
-        memory_output = ssh_command(ip, port, user, password, "display memory-usage")
-        version_output = ssh_command(ip, port, user, password, "display version")
-        temperature_output = ssh_command(ip, port, user, password, "display environment")
-        
-        # Parse dados
-        cpu_usage = parse_cpu(cpu_output)
-        memory_data = parse_memory(memory_output)
-        temperatures = parse_ipu_temperature_full(temperature_output)
-        
-        # Envia metricas
-        success_count = 0
-        error_count = 0
-        
-        # CPU
-        if cpu_usage != -1:
-            if send_zabbix_metric(hostname, "huawei.cpu.usage", cpu_usage):
-                success_count += 1
-            else:
-                error_count += 1
-        
-        # Memory
-        if memory_data[0] != -1:
-            if send_zabbix_metric(hostname, "huawei.memory.total", memory_data[0]):
-                success_count += 1
-            else:
-                error_count += 1
-            if send_zabbix_metric(hostname, "huawei.memory.used", memory_data[1]):
-                success_count += 1
-            else:
-                error_count += 1
-            if send_zabbix_metric(hostname, "huawei.memory.free", memory_data[2]):
-                success_count += 1
-            else:
-                error_count += 1
-            if send_zabbix_metric(hostname, "huawei.memory.used_pct", memory_data[3]):
-                success_count += 1
-            else:
-                error_count += 1
-            if send_zabbix_metric(hostname, "huawei.memory.free_pct", memory_data[4]):
-                success_count += 1
-            else:
-                error_count += 1
-        
-        # Temperature
-        for temp in temperatures:
-            if send_zabbix_metric(hostname, f"huawei.temperature[{temp['board']}]", temp["temp"]):
-                success_count += 1
-            else:
-                error_count += 1
-        
-        print(f"SUCCESS: {success_count} metricas enviadas, {error_count} erros")
-        return success_count > 0
-        
-    except Exception as e:
-        print(f"ERROR: {str(e)}")
-        return False
+    """Funcao original de collect que funcionava"""
+    # CPU
+    cmd_cpu = "display cpu-usage | no-more"
+    cpu_out = ssh_command(ip, port, user, password, cmd_cpu)
+    cpu = parse_cpu(cpu_out)
+
+    # Memoria
+    cmd_memory = "display memory-usage | no-more"
+    memory_out = ssh_command(ip, port, user, password, cmd_memory)
+    total_mem, used_mem, free_mem, used_mem_pct, free_mem_pct = parse_memory(memory_out)
+
+    # Versao e uptime
+    cmd_version = "display version | no-more"
+    version_out = ssh_command(ip, port, user, password, cmd_version)
+    version = parse_version(version_out)
+    uptime = parse_uptime(version_out)
+
+    # Temperaturas IPU (vai usar cache se ja foi executado no discovery)
+    command_temp = "display temperature ipu | no-more"
+    output_temp = ssh_command(ip, port, user, password, command_temp)
+    full_sensors = parse_ipu_temperature_full(output_temp)
+
+    # Envia cada leitura individualmente para evitar erro de lote
+    for entry in full_sensors:
+        key = f'temperatureInfo[{entry["{#SLOT}"]},{entry["{#SENSOR_NAME}"]},{entry["{#I2C}"]},{entry["{#ADDR}"]},{entry["{#CHL}"]}]'
+        value = entry["TEMP"]
+        cmd = [
+            "zabbix_sender", "-z", "127.0.0.1", "-s", hostname,
+            "-k", key, "-o", value
+        ]
+        subprocess.run(cmd, capture_output=True, timeout=10)
+
+    # Envia dados gerais
+    if cpu != -1:
+        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "cpuUsage", "-o", str(cpu)], capture_output=True, timeout=10)
+    if total_mem != -1:
+        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "memoryTotal", "-o", str(total_mem)], capture_output=True, timeout=10)
+    if used_mem != -1:
+        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "memoryUsed", "-o", str(used_mem)], capture_output=True, timeout=10)
+    if free_mem != -1:
+        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "memoryFree", "-o", str(free_mem)], capture_output=True, timeout=10)
+    if used_mem_pct != -1:
+        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "memoryUsedPercentage", "-o", str(used_mem_pct)], capture_output=True, timeout=10)
+    if free_mem_pct != -1:
+        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "memoryFreePercentage", "-o", str(free_mem_pct)], capture_output=True, timeout=10)
+    if version != "unknown":
+        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "firmwareVersion", "-o", version], capture_output=True, timeout=10)
+    if uptime != "unknown":
+        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "firmwareUptime", "-o", uptime], capture_output=True, timeout=10)
 
 def launch_discovery_and_collect(ip, port, user, password, hostname):
-    """OTIMIZADO: Executa discovery + coleta em uma unica operacao"""
+    """Executa discovery e coleta usando as funcoes originais que funcionavam - OTIMIZADO"""
     try:
-        print(f"🚀 Iniciando discovery + coleta para {hostname} ({ip})")
+        # Limpa cache
+        clear_cache()
         
-        # Obtem dados uma unica vez
-        cpu_output = ssh_command(ip, port, user, password, "display cpu-usage")
-        memory_output = ssh_command(ip, port, user, password, "display memory-usage")
-        version_output = ssh_command(ip, port, user, password, "display version")
-        temperature_output = ssh_command(ip, port, user, password, "display environment")
+        # Executa discovery original
+        launch_discovery_original(ip, port, user, password, hostname)
         
-        # Parse dados
-        cpu_usage = parse_cpu(cpu_output)
-        memory_data = parse_memory(memory_output)
-        version = parse_version(version_output)
-        temperatures = parse_ipu_temperature_full(temperature_output)
+        # Executa collect original (reutiliza comando de temperatura do cache)
+        collect_original(ip, port, user, password, hostname)
         
-        # Discovery
-        discovery_data = []
-        discovery_data.append({
-            "{#VERSION}": version,
-            "{#UPTIME}": parse_uptime(version_output)
-        })
+        print("SUCESSO: Discovery e coleta executados com sucesso!")
         
-        for temp in temperatures:
-            discovery_data.append({
-                "{#BOARD}": temp["board"],
-                "{#SLOT}": temp["slot"],
-                "{#TEMP}": temp["temp"]
-            })
-        
-        payload = json.dumps({"data": discovery_data}, separators=(',', ':'))
-        
-        # Envia discovery
-        discovery_result = subprocess.run([
-            "zabbix_sender", "-z", "127.0.0.1", "-s", hostname,
-            "-k", "huawei.health.discovery", "-o", payload
-        ], capture_output=True, text=True)
-        
-        # Coleta
-        success_count = 0
-        error_count = 0
-        
-        # CPU
-        if cpu_usage != -1:
-            if send_zabbix_metric(hostname, "huawei.cpu.usage", cpu_usage):
-                success_count += 1
-            else:
-                error_count += 1
-        
-        # Memory
-        if memory_data[0] != -1:
-            if send_zabbix_metric(hostname, "huawei.memory.total", memory_data[0]):
-                success_count += 1
-            else:
-                error_count += 1
-            if send_zabbix_metric(hostname, "huawei.memory.used", memory_data[1]):
-                success_count += 1
-            else:
-                error_count += 1
-            if send_zabbix_metric(hostname, "huawei.memory.free", memory_data[2]):
-                success_count += 1
-            else:
-                error_count += 1
-            if send_zabbix_metric(hostname, "huawei.memory.used_pct", memory_data[3]):
-                success_count += 1
-            else:
-                error_count += 1
-            if send_zabbix_metric(hostname, "huawei.memory.free_pct", memory_data[4]):
-                success_count += 1
-            else:
-                error_count += 1
-        
-        # Temperature
-        for temp in temperatures:
-            if send_zabbix_metric(hostname, f"huawei.temperature[{temp['board']}]", temp["temp"]):
-                success_count += 1
-            else:
-                error_count += 1
-        
-        # Resultado final
-        if discovery_result.returncode == 0 and error_count == 0:
-            print(f"✅ SUCCESS: Discovery + {success_count} metricas enviadas")
-            return True
-        elif discovery_result.returncode != 0:
-            print(f"❌ ERROR: Falha no discovery")
-            return False
-        else:
-            print(f"⚠️ PARCIAL: Discovery OK, {error_count} metricas falharam")
-            return success_count > 0
-            
     except Exception as e:
-        print(f"❌ ERROR: {str(e)}")
-        return False
+        print(f"ERRO: Falha na execucao do processo - {str(e)}", file=sys.stderr)
+    finally:
+        clear_cache()
 
 def collect(ip, port, user, password, hostname):
-    """Mantido para compatibilidade - executa apenas coleta"""
-    return collect_original(ip, port, user, password, hostname)
+    """Funcao de collect para compatibilidade"""
+    try:
+        clear_cache()
+        collect_original(ip, port, user, password, hostname)
+        print("SUCESSO: Coleta executada com sucesso!")
+        
+    except Exception as e:
+        print(f"ERRO: Falha na execucao do processo - {str(e)}", file=sys.stderr)
+    finally:
+        clear_cache()
 
 def main():
-    if len(sys.argv) < 6:
-        print("Usage: huawei_health.py <launch_discovery|collect> <ip> <port> <user> <password> <hostname>")
-        sys.exit(1)
-    
-    action = sys.argv[1]
-    ip = sys.argv[2]
-    port = int(sys.argv[3])
-    user = sys.argv[4]
-    password = sys.argv[5]
-    hostname = sys.argv[6]
-    
-    if action == "launch_discovery":
-        launch_discovery_and_collect(ip, port, user, password, hostname)
-    elif action == "collect":
-        collect(ip, port, user, password, hostname)
-    else:
-        print("Unknown action")
+    if len(sys.argv) < 2:
+        print("Uso: huawei_health.py <launch_discovery|collect> <ip> <porta> <login> <senha> <hostname>", file=sys.stderr)
         sys.exit(1)
 
-if __name__ == "__main__":
-    main() 
+    mode = sys.argv[1]
+    if mode == 'launch_discovery':
+        if len(sys.argv) != 7:
+            print("Uso: huawei_health.py launch_discovery <ip> <porta> <login> <senha> <hostname>", file=sys.stderr)
+            sys.exit(1)
+        _, _, ip, port, user, password, hostname = sys.argv + [None]*(7-len(sys.argv))
+        launch_discovery_and_collect(ip, port, user, password, hostname)
+    elif mode == 'collect':
+        if len(sys.argv) != 7:
+            print("Uso: huawei_health.py collect <ip> <porta> <login> <senha> <hostname>", file=sys.stderr)
+            sys.exit(1)
+        _, _, ip, port, user, password, hostname = sys.argv + [None]*(7-len(sys.argv))
+        collect(ip, port, user, password, hostname)
+    else:
+        print("ERRO: Modo desconhecido. Use launch_discovery ou collect.", file=sys.stderr)
+        sys.exit(2)
+
+if __name__ == '__main__':
+    main()
