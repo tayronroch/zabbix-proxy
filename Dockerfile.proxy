@@ -42,6 +42,11 @@ RUN set -ex; \
         procps \
         lsof \
         strace \
+        # Ferramentas necessarias para Zabbix
+        fping \
+        # Ferramentas adicionais para Zabbix Proxy
+        zabbix-get \
+        zabbix-agent2 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
