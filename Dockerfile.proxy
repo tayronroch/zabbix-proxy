@@ -172,6 +172,21 @@ RUN echo '#!/bin/bash' > /usr/local/bin/start-zabbix-proxy.sh && \
     echo '    echo "Timeout=$ZBX_TIMEOUT" >> /etc/zabbix/zabbix_proxy.conf' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo 'fi' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo '' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '# Configurar compressão de dados' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'if [ ! -z "$ZBX_DATA_SENDER_COMPRESS" ]; then' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '    echo "DataSenderCompress=$ZBX_DATA_SENDER_COMPRESS" >> /etc/zabbix/zabbix_proxy.conf' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'fi' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '# Configurar buffer local' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'if [ ! -z "$ZBX_PROXY_LOCAL_BUFFER" ]; then' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '    echo "ProxyLocalBuffer=$ZBX_PROXY_LOCAL_BUFFER" >> /etc/zabbix/zabbix_proxy.conf' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'fi' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '# Configurar buffer offline' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'if [ ! -z "$ZBX_PROXY_OFFLINE_BUFFER" ]; then' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '    echo "ProxyOfflineBuffer=$ZBX_PROXY_OFFLINE_BUFFER" >> /etc/zabbix/zabbix_proxy.conf' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'fi' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo '# Verificar scripts externos' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo 'echo "$(date): Verificando scripts externos..."' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo 'ls -la /usr/lib/zabbix/externalscripts/' >> /usr/local/bin/start-zabbix-proxy.sh && \
