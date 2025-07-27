@@ -228,12 +228,36 @@ def main():
             print("Uso: huawei_health.py launch_discovery <ip> <porta> <login> <senha> <hostname>", file=sys.stderr)
             sys.exit(1)
         _, _, ip, port, user, password, hostname = sys.argv + [None]*(7-len(sys.argv))
+        
+        # Validação para macros não resolvidas
+        if port == '{$SSH_PORT}' or port.startswith('{$'):
+            print("ERRO: Macro SSH_PORT não resolvida. Verifique a configuração do host no Zabbix.", file=sys.stderr)
+            sys.exit(1)
+        if user == '{$SSH_USER}' or user.startswith('{$'):
+            print("ERRO: Macro SSH_USER não resolvida. Verifique a configuração do host no Zabbix.", file=sys.stderr)
+            sys.exit(1)
+        if password == '{$SSH_PASS}' or password.startswith('{$'):
+            print("ERRO: Macro SSH_PASS não resolvida. Verifique a configuração do host no Zabbix.", file=sys.stderr)
+            sys.exit(1)
+            
         launch_discovery_and_collect(ip, port, user, password, hostname)
     elif mode == 'collect':
         if len(sys.argv) != 7:
             print("Uso: huawei_health.py collect <ip> <porta> <login> <senha> <hostname>", file=sys.stderr)
             sys.exit(1)
         _, _, ip, port, user, password, hostname = sys.argv + [None]*(7-len(sys.argv))
+        
+        # Validação para macros não resolvidas
+        if port == '{$SSH_PORT}' or port.startswith('{$'):
+            print("ERRO: Macro SSH_PORT não resolvida. Verifique a configuração do host no Zabbix.", file=sys.stderr)
+            sys.exit(1)
+        if user == '{$SSH_USER}' or user.startswith('{$'):
+            print("ERRO: Macro SSH_USER não resolvida. Verifique a configuração do host no Zabbix.", file=sys.stderr)
+            sys.exit(1)
+        if password == '{$SSH_PASS}' or password.startswith('{$'):
+            print("ERRO: Macro SSH_PASS não resolvida. Verifique a configuração do host no Zabbix.", file=sys.stderr)
+            sys.exit(1)
+            
         collect(ip, port, user, password, hostname)
     else:
         print("ERRO: Modo desconhecido. Use launch_discovery ou collect.", file=sys.stderr)
