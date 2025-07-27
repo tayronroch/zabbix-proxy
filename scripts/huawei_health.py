@@ -155,22 +155,22 @@ def launch_discovery(ip, port, user, password, hostname):
     output_temp = ssh_command(ip, port, user, password, command_temp)
     print("[DEBUG] Saida display temperature ipu:\n")
     print(output_temp)
-    ipu_list = []
+    
     full_sensors = parse_ipu_temperature_full(output_temp)
+    
+    # Envia cada sensor individualmente para discovery
     for entry in full_sensors:
-        ipu_list.append({
-            "{#SLOT}": entry["{#SLOT}"],
-            "{#SENSOR_NAME}": entry["{#SENSOR_NAME}"],
-            "{#I2C}": entry["{#I2C}"],
-            "{#ADDR}": entry["{#ADDR}"],
-            "{#CHL}": entry["{#CHL}"],
-        })
-    logger.info("Itens para discovery (temperatura): %d", len(ipu_list))
-    logger.info("Payload discovery IPU: %s", json.dumps({"data": ipu_list}, indent=2))
-    subprocess.run([
-        "zabbix_sender", "-z", "127.0.0.1", "-s", hostname,
-        "-k", "temperatureInfo", "-o", json.dumps({"data": ipu_list})
-    ])
+        key = f'temperatureInfo[{entry["{#SLOT}"]},{entry["{#SENSOR_NAME}"]},{entry["{#I2C}"]},{entry["{#ADDR}"]},{entry["{#CHL}"]}]'
+        value = entry["TEMP"]
+        
+        cmd = [
+            "zabbix_sender", "-z", "127.0.0.1", "-s", hostname,
+            "-k", key, "-o", value
+        ]
+        logger.info("Enviando discovery: %s %s %s", hostname, key, value)
+        subprocess.run(cmd, capture_output=True)
+    
+    logger.info("Discovery de sensores IPU concluido. Total: %d sensores", len(full_sensors))
     print("Discovery de sensores IPU concluido.")
 
 def collect(ip, port, user, password, hostname):
