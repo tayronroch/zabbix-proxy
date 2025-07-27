@@ -83,6 +83,7 @@ def parse_uptime(version_output):
 def parse_ipu_temperature_full(temperature_output):
     result = []
     current_slot = "unknown" # Inicializa com unknown ou um valor padrão
+    found_table = False  # Inicializa a variável found_table
 
     for line in temperature_output.splitlines():
         # Tenta capturar o slot da linha "Base-Board, Unit:C, Slot X"
