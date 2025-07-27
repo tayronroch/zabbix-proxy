@@ -41,7 +41,6 @@ def ssh_multiple_commands(ip, port, user, password, commands):
     
     for cmd_name, command in commands.items():
         try:
-            logger.info("Executando comando: %s", cmd_name)
             stdin, stdout, stderr = client.exec_command(command)
             output = stdout.read().decode('utf-8', errors='ignore')
             results[cmd_name] = output
@@ -50,7 +49,6 @@ def ssh_multiple_commands(ip, port, user, password, commands):
             time.sleep(0.5)
             
         except Exception as e:
-            logger.error("Erro ao executar comando %s: %s", cmd_name, str(e))
             results[cmd_name] = ""
     
     client.close()
@@ -144,21 +142,17 @@ def parse_ipu_temperature_full(temperature_output):
     result = []
     current_slot = "unknown" # Inicializa com unknown ou um valor padrão
     found_table = False  # Inicializa a variável found_table
-
-    print("[DEBUG] Iniciando parsing de temperatura...")
     
     for line in temperature_output.splitlines():
         # Tenta capturar o slot da linha "Base-Board, Unit:C, Slot X"
         slot_match = re.search(r'Base-Board, Unit:C, Slot (\d+)', line)
         if slot_match:
             current_slot = slot_match.group(1)
-            print(f"[DEBUG] Slot detectado: {current_slot}")
             continue # Pula para a próxima linha depois de encontrar o slot
 
         # Corrigido para capturar o formato atual
         if re.match(r'PCB\s+I2C\s+ADDr\s+Chl', line):
             found_table = True
-            print(f"[DEBUG] Cabeçalho da tabela encontrado: {line.strip()}")
             continue
         if not found_table or line.strip() == "" or line.startswith("-"):
             continue
@@ -171,7 +165,6 @@ def parse_ipu_temperature_full(temperature_output):
             addr = m.group(3)
             chl = m.group(4)
             temp = m.group(5)
-            print(f"[DEBUG] Sensor detectado: {board} I2C:{i2c} ADDR:{addr} CHL:{chl} TEMP:{temp}")
             result.append({
                 "{#SLOT}": current_slot, # Usa o slot dinâmico
                 "{#SENSOR_NAME}": board,
@@ -180,16 +173,10 @@ def parse_ipu_temperature_full(temperature_output):
                 "{#CHL}": chl,
                 "TEMP": temp
             })
-        else:
-            if line.strip() and not line.startswith("-") and "PCB" not in line:
-                print(f"[DEBUG] Linha não capturada: '{line.strip()}'")
     
-    print(f"[DEBUG] Total de sensores detectados: {len(result)}")
     return result
 
 def launch_discovery(ip, port, user, password, hostname):
-    logger.info("Executando discovery e coleta otimizada...")
-    
     # Define todos os comandos necessários
     commands = {
         'temperature': 'display temperature ipu | no-more',
@@ -203,19 +190,14 @@ def launch_discovery(ip, port, user, password, hostname):
     }
     
     # Tenta executar todos os comandos em uma única sessão SSH
-    logger.info("Executando todos os comandos em uma única sessão SSH...")
     try:
         results = ssh_multiple_commands(ip, port, user, password, commands)
         
         # Verifica se todos os comandos foram executados com sucesso
         if not all(results.values()):
-            logger.warning("Alguns comandos falharam, usando método original...")
             raise Exception("Comandos falharam")
             
     except Exception as e:
-        logger.error("Erro na sessão SSH otimizada: %s", str(e))
-        logger.info("Usando método original com múltiplas conexões...")
-        
         # Fallback para método original
         results = {}
         results['temperature'] = ssh_command(ip, port, user, password, commands['temperature'])
@@ -228,10 +210,6 @@ def launch_discovery(ip, port, user, password, hostname):
         results['health'] = ssh_command(ip, port, user, password, commands['health'])
     
     # ===== PROCESSAMENTO DE TEMPERATURA =====
-    logger.info("Processando dados de temperatura...")
-    print("[DEBUG] Saida display temperature ipu:\n")
-    print(results['temperature'])
-    
     full_sensors = parse_ipu_temperature_full(results['temperature'])
     
     # Cria lista para discovery do Zabbix - Temperatura
@@ -247,8 +225,6 @@ def launch_discovery(ip, port, user, password, hostname):
     
     # Envia discovery de temperatura
     discovery_json = json.dumps({"data": discovery_list})
-    logger.info("Enviando discovery de temperatura: %s", discovery_json)
-    
     cmd = [
         "zabbix_sender", "-z", "127.0.0.1", "-s", hostname,
         "-k", "temperatureInfo", "-o", discovery_json
@@ -256,13 +232,10 @@ def launch_discovery(ip, port, user, password, hostname):
     subprocess.run(cmd, capture_output=True)
     
     # ===== PROCESSAMENTO DE POWER =====
-    logger.info("Processando dados de energia...")
     power_info = parse_power_info(results['power'])
     
     if power_info:
         power_discovery_json = json.dumps({"data": power_info})
-        logger.info("Enviando discovery de power: %s", power_discovery_json)
-        
         cmd = [
             "zabbix_sender", "-z", "127.0.0.1", "-s", hostname,
             "-k", "powerInfo", "-o", power_discovery_json
@@ -270,8 +243,6 @@ def launch_discovery(ip, port, user, password, hostname):
         subprocess.run(cmd, capture_output=True)
     
     # ===== PROCESSAMENTO DE DADOS GERAIS =====
-    logger.info("Processando dados gerais...")
-    
     # CPU
     cpu = parse_cpu(results['cpu'])
     
@@ -292,7 +263,6 @@ def launch_discovery(ip, port, user, password, hostname):
     health_cpu, health_mem_pct, health_mem_used, health_mem_total = parse_health_info(results['health'])
     
     # ===== ENVIA DADOS DE TEMPERATURA =====
-    logger.info("Enviando dados de temperatura...")
     for entry in full_sensors:
         key = f'temperatureInfo[{entry["{#SLOT}"]},{entry["{#SENSOR_NAME}"]},{entry["{#I2C}"]},{entry["{#ADDR}"]},{entry["{#CHL}"]}]'
         value = entry["TEMP"]
@@ -300,11 +270,9 @@ def launch_discovery(ip, port, user, password, hostname):
             "zabbix_sender", "-z", "127.0.0.1", "-s", hostname,
             "-k", key, "-o", value
         ]
-        logger.info("Enviando temperatura: %s %s", key, value)
         subprocess.run(cmd, capture_output=True)
     
     # ===== ENVIA DADOS GERAIS =====
-    logger.info("Enviando dados gerais...")
     if cpu != -1:
         subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "cpuUsage", "-o", str(cpu)], capture_output=True)
     if total_mem != -1:
@@ -324,16 +292,13 @@ def launch_discovery(ip, port, user, password, hostname):
     
     # ===== ENVIA DADOS DE FAN =====
     if fan_speed != -1:
-        logger.info("Enviando velocidade dos ventiladores: %s", fan_speed)
         subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "fanMean", "-o", str(fan_speed)], capture_output=True)
     
     # ===== ENVIA DADOS DE POWER =====
     if total_power != -1:
-        logger.info("Enviando consumo total de potência: %s", total_power)
         subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "total_power_usage", "-o", str(total_power)], capture_output=True)
     
-    logger.info("Discovery e coleta otimizados concluidos. Temperatura: %d sensores, Power: %d fontes", len(full_sensors), len(power_info) if power_info else 0)
-    print("Discovery e coleta de sensores IPU concluidos!")
+    print("Processo iniciado com sucesso!")
 
 def collect(ip, port, user, password, hostname):
     logger.info("Coletando CPU...")
