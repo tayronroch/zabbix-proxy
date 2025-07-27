@@ -119,19 +119,25 @@ def parse_ipu_temperature_full(temperature_output):
     current_slot = "unknown" # Inicializa com unknown ou um valor padrão
     found_table = False  # Inicializa a variável found_table
 
+    print("[DEBUG] Iniciando parsing de temperatura...")
+    
     for line in temperature_output.splitlines():
         # Tenta capturar o slot da linha "Base-Board, Unit:C, Slot X"
         slot_match = re.search(r'Base-Board, Unit:C, Slot (\d+)', line)
         if slot_match:
             current_slot = slot_match.group(1)
+            print(f"[DEBUG] Slot detectado: {current_slot}")
             continue # Pula para a próxima linha depois de encontrar o slot
 
-        if re.match(r'PCB\s+I2C\s+Addr\s+Chl', line):
+        # Corrigido para capturar o formato atual
+        if re.match(r'PCB\s+I2C\s+ADDr\s+Chl', line):
             found_table = True
+            print(f"[DEBUG] Cabeçalho da tabela encontrado: {line.strip()}")
             continue
         if not found_table or line.strip() == "" or line.startswith("-"):
             continue
 
+        # Regex corrigido para o formato atual
         m = re.match(r'(\S+)\s+(\d+)\s+(\d+)\s+(\d+)\s+\S+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+(-?\d+)', line.strip())
         if m:
             board = m.group(1)
@@ -139,6 +145,7 @@ def parse_ipu_temperature_full(temperature_output):
             addr = m.group(3)
             chl = m.group(4)
             temp = m.group(5)
+            print(f"[DEBUG] Sensor detectado: {board} I2C:{i2c} ADDR:{addr} CHL:{chl} TEMP:{temp}")
             result.append({
                 "{#SLOT}": current_slot, # Usa o slot dinâmico
                 "{#SENSOR_NAME}": board,
@@ -147,6 +154,11 @@ def parse_ipu_temperature_full(temperature_output):
                 "{#CHL}": chl,
                 "TEMP": temp
             })
+        else:
+            if line.strip() and not line.startswith("-") and "PCB" not in line:
+                print(f"[DEBUG] Linha não capturada: '{line.strip()}'")
+    
+    print(f"[DEBUG] Total de sensores detectados: {len(result)}")
     return result
 
 def launch_discovery(ip, port, user, password, hostname):
