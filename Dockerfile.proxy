@@ -55,6 +55,11 @@ RUN wget -O - https://repo.zabbix.com/zabbix-official-repo.key | apt-key add - &
     apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# Configurar links simbólicos para fping (Zabbix espera em /usr/sbin/)
+RUN ln -sf /usr/bin/fping /usr/sbin/fping && \
+    ln -sf /usr/bin/fping6 /usr/sbin/fping6 && \
+    chmod +s /usr/bin/fping /usr/bin/fping6
+
 # Instalar bibliotecas Python
 RUN pip3 install --no-cache-dir \
     paramiko \
