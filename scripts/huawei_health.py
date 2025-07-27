@@ -207,8 +207,89 @@ def launch_discovery(ip, port, user, password, hostname):
         ]
         subprocess.run(cmd, capture_output=True)
     
-    logger.info("Discovery concluido. Temperatura: %d sensores, Power: %d fontes", len(full_sensors), len(power_info) if power_info else 0)
-    print("Discovery de sensores IPU concluido.")
+    # ===== COLETA DE DADOS =====
+    logger.info("Iniciando coleta de dados...")
+    
+    # Coleta CPU
+    logger.info("Coletando CPU...")
+    cmd_cpu = "display cpu-usage | no-more"
+    cpu_out = ssh_command(ip, port, user, password, cmd_cpu)
+    cpu = parse_cpu(cpu_out)
+    
+    # Coleta Memória
+    logger.info("Coletando memoria...")
+    cmd_memory = "display memory-usage | no-more"
+    memory_out = ssh_command(ip, port, user, password, cmd_memory)
+    total_mem, used_mem, free_mem, used_mem_pct, free_mem_pct = parse_memory(memory_out)
+    
+    # Coleta Versão e Uptime
+    logger.info("Coletando versao e uptime...")
+    cmd_version = "display version | no-more"
+    version_out = ssh_command(ip, port, user, password, cmd_version)
+    version = parse_version(version_out)
+    uptime = parse_uptime(version_out)
+    
+    # Coleta Fan
+    logger.info("Coletando dados dos ventiladores...")
+    cmd_fan = "display fan | no-more"
+    fan_out = ssh_command(ip, port, user, password, cmd_fan)
+    fan_speed = parse_fan_speed(fan_out)
+    
+    # Coleta Power Supply Info
+    logger.info("Coletando informações de power supply...")
+    cmd_power_supply = "display power-supply information | no-more"
+    power_supply_out = ssh_command(ip, port, user, password, cmd_power_supply)
+    total_power = parse_power_supply_info(power_supply_out)
+    
+    # Coleta Health
+    logger.info("Coletando dados de saúde do sistema...")
+    cmd_health = "display health | no-more"
+    health_out = ssh_command(ip, port, user, password, cmd_health)
+    health_cpu, health_mem_pct, health_mem_used, health_mem_total = parse_health_info(health_out)
+    
+    # ===== ENVIA DADOS DE TEMPERATURA =====
+    logger.info("Enviando dados de temperatura...")
+    for entry in full_sensors:
+        key = f'temperatureInfo[{entry["{#SLOT}"]},{entry["{#SENSOR_NAME}"]},{entry["{#I2C}"]},{entry["{#ADDR}"]},{entry["{#CHL}"]}]'
+        value = entry["TEMP"]
+        cmd = [
+            "zabbix_sender", "-z", "127.0.0.1", "-s", hostname,
+            "-k", key, "-o", value
+        ]
+        logger.info("Enviando temperatura: %s %s", key, value)
+        subprocess.run(cmd, capture_output=True)
+    
+    # ===== ENVIA DADOS GERAIS =====
+    logger.info("Enviando dados gerais...")
+    if cpu != -1:
+        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "cpuUsage", "-o", str(cpu)], capture_output=True)
+    if total_mem != -1:
+        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "memoryTotal", "-o", str(total_mem)], capture_output=True)
+    if used_mem != -1:
+        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "memoryUsed", "-o", str(used_mem)], capture_output=True)
+    if free_mem != -1:
+        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "memoryFree", "-o", str(free_mem)], capture_output=True)
+    if used_mem_pct != -1:
+        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "memoryUsedPercentage", "-o", str(used_mem_pct)], capture_output=True)
+    if free_mem_pct != -1:
+        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "memoryFreePercentage", "-o", str(free_mem_pct)], capture_output=True)
+    if version != "unknown":
+        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "firmwareVersion", "-o", version], capture_output=True)
+    if uptime != "unknown":
+        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "firmwareUptime", "-o", uptime], capture_output=True)
+    
+    # ===== ENVIA DADOS DE FAN =====
+    if fan_speed != -1:
+        logger.info("Enviando velocidade dos ventiladores: %s", fan_speed)
+        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "fanMean", "-o", str(fan_speed)], capture_output=True)
+    
+    # ===== ENVIA DADOS DE POWER =====
+    if total_power != -1:
+        logger.info("Enviando consumo total de potência: %s", total_power)
+        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "total_power_usage", "-o", str(total_power)], capture_output=True)
+    
+    logger.info("Discovery e coleta concluidos. Temperatura: %d sensores, Power: %d fontes", len(full_sensors), len(power_info) if power_info else 0)
+    print("Discovery e coleta de sensores IPU concluidos!")
 
 def collect(ip, port, user, password, hostname):
     logger.info("Coletando CPU...")
