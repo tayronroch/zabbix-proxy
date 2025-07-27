@@ -44,17 +44,14 @@ RUN set -ex; \
         strace \
         # Ferramentas necessarias para Zabbix
         fping \
-        # Ferramentas adicionais para Zabbix Proxy
-        zabbix-get \
-        zabbix-agent2 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Adicionar repositório Zabbix 7.0 LTS e instalar Zabbix Proxy + zabbix_sender
+# Adicionar repositório Zabbix 7.0 LTS e instalar Zabbix Proxy + ferramentas
 RUN wget -O - https://repo.zabbix.com/zabbix-official-repo.key | apt-key add - && \
     echo "deb https://repo.zabbix.com/zabbix/7.0/ubuntu $(lsb_release -cs) main" >> /etc/apt/sources.list.d/zabbix.list && \
     apt-get update && \
-    apt-get install -y zabbix-proxy-sqlite3 zabbix-sender && \
+    apt-get install -y zabbix-proxy-sqlite3 zabbix-sender zabbix-get zabbix-agent2 && \
     apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
