@@ -203,8 +203,9 @@ RUN echo "Hostname=corewise-proxy" > /etc/zabbix/zabbix_proxy.conf && \
     echo "ExternalScripts=/usr/lib/zabbix/externalscripts" >> /etc/zabbix/zabbix_proxy.conf && \
     chown zabbix:zabbix /etc/zabbix/zabbix_proxy.conf
 
-# Expor porta do Zabbix Proxy
-EXPOSE 10051
+# O Zabbix Proxy se conecta ativamente ao Zabbix Server
+# Nao precisa expor a porta 10051 externamente
+# EXPOSE 10051
 
 # Configurar variáveis de ambiente padrão
 ENV ZBX_HOSTNAME=corewise-proxy
