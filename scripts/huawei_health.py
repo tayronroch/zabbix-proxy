@@ -170,19 +170,44 @@ def launch_discovery(ip, port, user, password, hostname):
     
     full_sensors = parse_ipu_temperature_full(output_temp)
     
-    # Envia cada sensor individualmente para discovery
+    # Cria lista para discovery do Zabbix - Temperatura
+    discovery_list = []
     for entry in full_sensors:
-        key = f'temperatureInfo[{entry["{#SLOT}"]},{entry["{#SENSOR_NAME}"]},{entry["{#I2C}"]},{entry["{#ADDR}"]},{entry["{#CHL}"]}]'
-        value = entry["TEMP"]
+        discovery_list.append({
+            "{#SLOT}": entry["{#SLOT}"],
+            "{#SENSOR_NAME}": entry["{#SENSOR_NAME}"],
+            "{#I2C}": entry["{#I2C}"],
+            "{#ADDR}": entry["{#ADDR}"],
+            "{#CHL}": entry["{#CHL}"],
+        })
+    
+    # Envia discovery de temperatura
+    discovery_json = json.dumps({"data": discovery_list})
+    logger.info("Enviando discovery de temperatura: %s", discovery_json)
+    
+    cmd = [
+        "zabbix_sender", "-z", "127.0.0.1", "-s", hostname,
+        "-k", "temperatureInfo", "-o", discovery_json
+    ]
+    subprocess.run(cmd, capture_output=True)
+    
+    # Discovery de Power
+    logger.info("Executando discovery de fontes de energia...")
+    cmd_power = "display power | no-more"
+    power_out = ssh_command(ip, port, user, password, cmd_power)
+    power_info = parse_power_info(power_out)
+    
+    if power_info:
+        power_discovery_json = json.dumps({"data": power_info})
+        logger.info("Enviando discovery de power: %s", power_discovery_json)
         
         cmd = [
             "zabbix_sender", "-z", "127.0.0.1", "-s", hostname,
-            "-k", key, "-o", value
+            "-k", "powerInfo", "-o", power_discovery_json
         ]
-        logger.info("Enviando discovery: %s %s %s", hostname, key, value)
         subprocess.run(cmd, capture_output=True)
     
-    logger.info("Discovery de sensores IPU concluido. Total: %d sensores", len(full_sensors))
+    logger.info("Discovery concluido. Temperatura: %d sensores, Power: %d fontes", len(full_sensors), len(power_info) if power_info else 0)
     print("Discovery de sensores IPU concluido.")
 
 def collect(ip, port, user, password, hostname):
