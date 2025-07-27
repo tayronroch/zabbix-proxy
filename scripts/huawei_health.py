@@ -18,7 +18,9 @@ import tempfile
 import subprocess
 import json
 
-logging.basicConfig(level=logging.INFO)
+# Desabilita logs do Paramiko
+logging.getLogger("paramiko").setLevel(logging.CRITICAL)
+logging.basicConfig(level=logging.CRITICAL)
 logger = logging.getLogger(__name__)
 
 def ssh_command(ip, port, user, password, command):
