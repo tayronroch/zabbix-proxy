@@ -30,6 +30,21 @@ def ssh_command(ip, port, user, password, command):
     client.close()
     return output
 
+def ssh_multiple_commands(ip, port, user, password, commands):
+    """Executa múltiplos comandos em uma única sessão SSH"""
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    client.connect(ip, port=int(port), username=user, password=password, look_for_keys=False)
+    
+    results = {}
+    for cmd_name, command in commands.items():
+        stdin, stdout, stderr = client.exec_command(command)
+        output = stdout.read().decode('utf-8', errors='ignore')
+        results[cmd_name] = output
+    
+    client.close()
+    return results
+
 def parse_cpu(cpu_output):
     m = re.search(r"System cpu use rate is\s*:\s*(\d+)%", cpu_output)
     return int(m.group(1)) if m else -1
@@ -162,13 +177,30 @@ def parse_ipu_temperature_full(temperature_output):
     return result
 
 def launch_discovery(ip, port, user, password, hostname):
-    logger.info("Executando discovery de sensores IPU...")
-    command_temp = "display temperature ipu | no-more"
-    output_temp = ssh_command(ip, port, user, password, command_temp)
-    print("[DEBUG] Saida display temperature ipu:\n")
-    print(output_temp)
+    logger.info("Executando discovery e coleta otimizada...")
     
-    full_sensors = parse_ipu_temperature_full(output_temp)
+    # Define todos os comandos necessários
+    commands = {
+        'temperature': 'display temperature ipu | no-more',
+        'power': 'display power | no-more',
+        'cpu': 'display cpu-usage | no-more',
+        'memory': 'display memory-usage | no-more',
+        'version': 'display version | no-more',
+        'fan': 'display fan | no-more',
+        'power_supply': 'display power-supply information | no-more',
+        'health': 'display health | no-more'
+    }
+    
+    # Executa todos os comandos em uma única sessão SSH
+    logger.info("Executando todos os comandos em uma única sessão SSH...")
+    results = ssh_multiple_commands(ip, port, user, password, commands)
+    
+    # ===== PROCESSAMENTO DE TEMPERATURA =====
+    logger.info("Processando dados de temperatura...")
+    print("[DEBUG] Saida display temperature ipu:\n")
+    print(results['temperature'])
+    
+    full_sensors = parse_ipu_temperature_full(results['temperature'])
     
     # Cria lista para discovery do Zabbix - Temperatura
     discovery_list = []
@@ -191,11 +223,9 @@ def launch_discovery(ip, port, user, password, hostname):
     ]
     subprocess.run(cmd, capture_output=True)
     
-    # Discovery de Power
-    logger.info("Executando discovery de fontes de energia...")
-    cmd_power = "display power | no-more"
-    power_out = ssh_command(ip, port, user, password, cmd_power)
-    power_info = parse_power_info(power_out)
+    # ===== PROCESSAMENTO DE POWER =====
+    logger.info("Processando dados de energia...")
+    power_info = parse_power_info(results['power'])
     
     if power_info:
         power_discovery_json = json.dumps({"data": power_info})
@@ -207,45 +237,27 @@ def launch_discovery(ip, port, user, password, hostname):
         ]
         subprocess.run(cmd, capture_output=True)
     
-    # ===== COLETA DE DADOS =====
-    logger.info("Iniciando coleta de dados...")
+    # ===== PROCESSAMENTO DE DADOS GERAIS =====
+    logger.info("Processando dados gerais...")
     
-    # Coleta CPU
-    logger.info("Coletando CPU...")
-    cmd_cpu = "display cpu-usage | no-more"
-    cpu_out = ssh_command(ip, port, user, password, cmd_cpu)
-    cpu = parse_cpu(cpu_out)
+    # CPU
+    cpu = parse_cpu(results['cpu'])
     
-    # Coleta Memória
-    logger.info("Coletando memoria...")
-    cmd_memory = "display memory-usage | no-more"
-    memory_out = ssh_command(ip, port, user, password, cmd_memory)
-    total_mem, used_mem, free_mem, used_mem_pct, free_mem_pct = parse_memory(memory_out)
+    # Memória
+    total_mem, used_mem, free_mem, used_mem_pct, free_mem_pct = parse_memory(results['memory'])
     
-    # Coleta Versão e Uptime
-    logger.info("Coletando versao e uptime...")
-    cmd_version = "display version | no-more"
-    version_out = ssh_command(ip, port, user, password, cmd_version)
-    version = parse_version(version_out)
-    uptime = parse_uptime(version_out)
+    # Versão e Uptime
+    version = parse_version(results['version'])
+    uptime = parse_uptime(results['version'])
     
-    # Coleta Fan
-    logger.info("Coletando dados dos ventiladores...")
-    cmd_fan = "display fan | no-more"
-    fan_out = ssh_command(ip, port, user, password, cmd_fan)
-    fan_speed = parse_fan_speed(fan_out)
+    # Fan
+    fan_speed = parse_fan_speed(results['fan'])
     
-    # Coleta Power Supply Info
-    logger.info("Coletando informações de power supply...")
-    cmd_power_supply = "display power-supply information | no-more"
-    power_supply_out = ssh_command(ip, port, user, password, cmd_power_supply)
-    total_power = parse_power_supply_info(power_supply_out)
+    # Power Supply
+    total_power = parse_power_supply_info(results['power_supply'])
     
-    # Coleta Health
-    logger.info("Coletando dados de saúde do sistema...")
-    cmd_health = "display health | no-more"
-    health_out = ssh_command(ip, port, user, password, cmd_health)
-    health_cpu, health_mem_pct, health_mem_used, health_mem_total = parse_health_info(health_out)
+    # Health
+    health_cpu, health_mem_pct, health_mem_used, health_mem_total = parse_health_info(results['health'])
     
     # ===== ENVIA DADOS DE TEMPERATURA =====
     logger.info("Enviando dados de temperatura...")
@@ -288,7 +300,7 @@ def launch_discovery(ip, port, user, password, hostname):
         logger.info("Enviando consumo total de potência: %s", total_power)
         subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "total_power_usage", "-o", str(total_power)], capture_output=True)
     
-    logger.info("Discovery e coleta concluidos. Temperatura: %d sensores, Power: %d fontes", len(full_sensors), len(power_info) if power_info else 0)
+    logger.info("Discovery e coleta otimizados concluidos. Temperatura: %d sensores, Power: %d fontes", len(full_sensors), len(power_info) if power_info else 0)
     print("Discovery e coleta de sensores IPU concluidos!")
 
 def collect(ip, port, user, password, hostname):
