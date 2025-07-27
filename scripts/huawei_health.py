@@ -13,43 +13,22 @@ OTIMIZADO: launch_discovery agora executa discovery + coleta em uma unica operac
 import sys
 import paramiko
 import re
+import logging
 import tempfile
 import subprocess
 import json
 
-# Cache simples para evitar comandos duplicados
-command_cache = {}
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def ssh_command(ip, port, user, password, command):
-    """Executa comando SSH com cache para evitar duplicatas"""
-    global command_cache
-    
-    # Verifica cache primeiro
-    cache_key = f"{ip}:{port}:{command}"
-    if cache_key in command_cache:
-        return command_cache[cache_key]
-    
-    # Executa comando
-    try:
-        client = paramiko.SSHClient()
-        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        client.connect(ip, port=int(port), username=user, password=password, 
-                      look_for_keys=False, timeout=30)
-        stdin, stdout, stderr = client.exec_command(command, timeout=45)
-        output = stdout.read().decode('utf-8', errors='ignore')
-        client.close()
-        
-        # Armazena no cache
-        command_cache[cache_key] = output
-        return output
-        
-    except Exception as e:
-        raise Exception(f"Erro SSH em '{command}': {str(e)}")
-
-def clear_cache():
-    """Limpa cache de comandos"""
-    global command_cache
-    command_cache.clear()
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    client.connect(ip, port=int(port), username=user, password=password, look_for_keys=False)
+    stdin, stdout, stderr = client.exec_command(command)
+    output = stdout.read().decode('utf-8', errors='ignore')
+    client.close()
+    return output
 
 def parse_cpu(cpu_output):
     m = re.search(r"System cpu use rate is\s*:\s*(\d+)%", cpu_output)
@@ -170,11 +149,12 @@ def parse_ipu_temperature_full(temperature_output):
             })
     return result
 
-def launch_discovery_original(ip, port, user, password, hostname):
-    """Funcao original de discovery que funcionava"""
+def launch_discovery(ip, port, user, password, hostname):
+    logger.info("Executando discovery de sensores IPU...")
     command_temp = "display temperature ipu | no-more"
     output_temp = ssh_command(ip, port, user, password, command_temp)
-    
+    print("[DEBUG] Saida display temperature ipu:\n")
+    print(output_temp)
     ipu_list = []
     full_sensors = parse_ipu_temperature_full(output_temp)
     for entry in full_sensors:
@@ -185,56 +165,61 @@ def launch_discovery_original(ip, port, user, password, hostname):
             "{#ADDR}": entry["{#ADDR}"],
             "{#CHL}": entry["{#CHL}"],
         })
-    
+    logger.info("Itens para discovery (temperatura): %d", len(ipu_list))
+    logger.info("Payload discovery IPU: %s", json.dumps({"data": ipu_list}, indent=2))
     subprocess.run([
         "zabbix_sender", "-z", "127.0.0.1", "-s", hostname,
         "-k", "temperatureInfo", "-o", json.dumps({"data": ipu_list})
-    ], capture_output=True, timeout=15)
+    ])
+    print("Discovery de sensores IPU concluido.")
 
-def collect_original(ip, port, user, password, hostname):
-    """Funcao original de collect que funcionava"""
-    # CPU
+def collect(ip, port, user, password, hostname):
+    logger.info("Coletando CPU...")
     cmd_cpu = "display cpu-usage | no-more"
     cpu_out = ssh_command(ip, port, user, password, cmd_cpu)
     cpu = parse_cpu(cpu_out)
 
-    # Memoria
+    logger.info("Coletando memoria...")
     cmd_memory = "display memory-usage | no-more"
     memory_out = ssh_command(ip, port, user, password, cmd_memory)
     total_mem, used_mem, free_mem, used_mem_pct, free_mem_pct = parse_memory(memory_out)
 
-    # Versao e uptime
+    logger.info("Coletando versao e uptime...")
     cmd_version = "display version | no-more"
     version_out = ssh_command(ip, port, user, password, cmd_version)
     version = parse_version(version_out)
     uptime = parse_uptime(version_out)
 
-    # Temperaturas IPU
+    logger.info("Coletando temperaturas IPU...")
     command_temp = "display temperature ipu | no-more"
     output_temp = ssh_command(ip, port, user, password, command_temp)
     full_sensors = parse_ipu_temperature_full(output_temp)
 
     # NOVOS COMANDOS - Fan/Ventiladores
+    logger.info("Coletando dados dos ventiladores...")
     cmd_fan = "display fan | no-more"
     fan_out = ssh_command(ip, port, user, password, cmd_fan)
     fan_speed = parse_fan_speed(fan_out)
 
     # NOVOS COMANDOS - Power/Energia
+    logger.info("Coletando dados de energia...")
     cmd_power = "display power | no-more"
     power_out = ssh_command(ip, port, user, password, cmd_power)
     power_info = parse_power_info(power_out)
 
     # NOVOS COMANDOS - Power Supply Info
+    logger.info("Coletando informações de power supply...")
     cmd_power_supply = "display power-supply information | no-more"
     power_supply_out = ssh_command(ip, port, user, password, cmd_power_supply)
     total_power = parse_power_supply_info(power_supply_out)
 
     # NOVOS COMANDOS - Health
+    logger.info("Coletando dados de saúde do sistema...")
     cmd_health = "display health | no-more"
     health_out = ssh_command(ip, port, user, password, cmd_health)
     health_cpu, health_mem_pct, health_mem_used, health_mem_total = parse_health_info(health_out)
 
-    # Envia temperaturas
+    # envia cada leitura individualmente para evitar erro de lote
     for entry in full_sensors:
         key = f'temperatureInfo[{entry["{#SLOT}"]},{entry["{#SENSOR_NAME}"]},{entry["{#I2C}"]},{entry["{#ADDR}"]},{entry["{#CHL}"]}]'
         value = entry["TEMP"]
@@ -242,117 +227,91 @@ def collect_original(ip, port, user, password, hostname):
             "zabbix_sender", "-z", "127.0.0.1", "-s", hostname,
             "-k", key, "-o", value
         ]
-        subprocess.run(cmd, capture_output=True, timeout=10)
+        logger.info("Enviando: %s %s %s", hostname, key, value)
+        subprocess.run(cmd, capture_output=True)
 
-    # Envia dados gerais
+    # envia tambem os dados gerais
     if cpu != -1:
-        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "cpuUsage", "-o", str(cpu)], capture_output=True, timeout=10)
+        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "cpuUsage", "-o", str(cpu)], capture_output=True)
     if total_mem != -1:
-        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "memoryTotal", "-o", str(total_mem)], capture_output=True, timeout=10)
+        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "memoryTotal", "-o", str(total_mem)], capture_output=True)
     if used_mem != -1:
-        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "memoryUsed", "-o", str(used_mem)], capture_output=True, timeout=10)
+        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "memoryUsed", "-o", str(used_mem)], capture_output=True)
     if free_mem != -1:
-        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "memoryFree", "-o", str(free_mem)], capture_output=True, timeout=10)
+        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "memoryFree", "-o", str(free_mem)], capture_output=True)
     if used_mem_pct != -1:
-        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "memoryUsedPercentage", "-o", str(used_mem_pct)], capture_output=True, timeout=10)
+        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "memoryUsedPercentage", "-o", str(used_mem_pct)], capture_output=True)
     if free_mem_pct != -1:
-        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "memoryFreePercentage", "-o", str(free_mem_pct)], capture_output=True, timeout=10)
+        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "memoryFreePercentage", "-o", str(free_mem_pct)], capture_output=True)
     if version != "unknown":
-        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "firmwareVersion", "-o", version], capture_output=True, timeout=10)
+        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "firmwareVersion", "-o", version], capture_output=True)
     if uptime != "unknown":
-        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "firmwareUptime", "-o", uptime], capture_output=True, timeout=10)
+        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "firmwareUptime", "-o", uptime], capture_output=True)
     
     # NOVOS DADOS - Fan
     if fan_speed != -1:
-        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "fanMean", "-o", str(fan_speed)], capture_output=True, timeout=10)
+        logger.info("Enviando velocidade dos ventiladores: %s", fan_speed)
+        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "fanMean", "-o", str(fan_speed)], capture_output=True)
     
     # NOVOS DADOS - Power
     if total_power != -1:
-        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "total_power_usage", "-o", str(total_power)], capture_output=True, timeout=10)
+        logger.info("Enviando consumo total de potência: %s", total_power)
+        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "total_power_usage", "-o", str(total_power)], capture_output=True)
 
     # Envia discovery de power
     if power_info:
+        logger.info("Enviando discovery de power: %s", len(power_info))
         subprocess.run([
             "zabbix_sender", "-z", "127.0.0.1", "-s", hostname,
             "-k", "powerInfo", "-o", json.dumps({"data": power_info})
-        ], capture_output=True, timeout=15)
+        ], capture_output=True)
 
-def launch_discovery_and_collect(ip, port, user, password, hostname):
-    """Executa discovery e coleta usando as funcoes originais que funcionavam - OTIMIZADO"""
-    try:
-        # Limpa cache
-        clear_cache()
-        
-        # Executa discovery original
-        launch_discovery_original(ip, port, user, password, hostname)
-        
-        # Executa collect original (reutiliza comando de temperatura do cache)
-        collect_original(ip, port, user, password, hostname)
-        
-        print("SUCESSO: Discovery e coleta executados com sucesso!")
-        
-    except Exception as e:
-        print(f"ERRO: Falha na execucao do processo - {str(e)}", file=sys.stderr)
-    finally:
-        clear_cache()
-
-def collect(ip, port, user, password, hostname):
-    """Funcao de collect para compatibilidade"""
-    try:
-        clear_cache()
-        collect_original(ip, port, user, password, hostname)
-        print("SUCESSO: Coleta executada com sucesso!")
-        
-    except Exception as e:
-        print(f"ERRO: Falha na execucao do processo - {str(e)}", file=sys.stderr)
-    finally:
-        clear_cache()
+    print("Coleta concluida!")
 
 def main():
     if len(sys.argv) < 2:
-        print("Uso: huawei_health.py <launch_discovery|collect> <ip> <porta> <login> <senha> <hostname>", file=sys.stderr)
+        print("Uso: huawei_health.py <launch_discovery|collect> <ip> <porta> <login> <senha> <hostname>")
         sys.exit(1)
 
     mode = sys.argv[1]
     if mode == 'launch_discovery':
         if len(sys.argv) != 7:
-            print("Uso: huawei_health.py launch_discovery <ip> <porta> <login> <senha> <hostname>", file=sys.stderr)
+            print("Uso: huawei_health.py launch_discovery <ip> <porta> <login> <senha> <hostname>")
             sys.exit(1)
         _, _, ip, port, user, password, hostname = sys.argv + [None]*(7-len(sys.argv))
         
         # Validação para macros não resolvidas
         if port == '{$SSH_PORT}' or port.startswith('{$'):
-            print("ERRO: Macro SSH_PORT não resolvida. Verifique a configuração do host no Zabbix.", file=sys.stderr)
+            print("ERRO: Macro SSH_PORT não resolvida. Verifique a configuração do host no Zabbix.")
             sys.exit(1)
         if user == '{$SSH_USER}' or user.startswith('{$'):
-            print("ERRO: Macro SSH_USER não resolvida. Verifique a configuração do host no Zabbix.", file=sys.stderr)
+            print("ERRO: Macro SSH_USER não resolvida. Verifique a configuração do host no Zabbix.")
             sys.exit(1)
         if password == '{$SSH_PASS}' or password.startswith('{$'):
-            print("ERRO: Macro SSH_PASS não resolvida. Verifique a configuração do host no Zabbix.", file=sys.stderr)
+            print("ERRO: Macro SSH_PASS não resolvida. Verifique a configuração do host no Zabbix.")
             sys.exit(1)
             
-        launch_discovery_and_collect(ip, port, user, password, hostname)
+        launch_discovery(ip, port, user, password, hostname)
     elif mode == 'collect':
         if len(sys.argv) != 7:
-            print("Uso: huawei_health.py collect <ip> <porta> <login> <senha> <hostname>", file=sys.stderr)
+            print("Uso: huawei_health.py collect <ip> <porta> <login> <senha> <hostname>")
             sys.exit(1)
         _, _, ip, port, user, password, hostname = sys.argv + [None]*(7-len(sys.argv))
         
         # Validação para macros não resolvidas
         if port == '{$SSH_PORT}' or port.startswith('{$'):
-            print("ERRO: Macro SSH_PORT não resolvida. Verifique a configuração do host no Zabbix.", file=sys.stderr)
+            print("ERRO: Macro SSH_PORT não resolvida. Verifique a configuração do host no Zabbix.")
             sys.exit(1)
         if user == '{$SSH_USER}' or user.startswith('{$'):
-            print("ERRO: Macro SSH_USER não resolvida. Verifique a configuração do host no Zabbix.", file=sys.stderr)
+            print("ERRO: Macro SSH_USER não resolvida. Verifique a configuração do host no Zabbix.")
             sys.exit(1)
         if password == '{$SSH_PASS}' or password.startswith('{$'):
-            print("ERRO: Macro SSH_PASS não resolvida. Verifique a configuração do host no Zabbix.", file=sys.stderr)
+            print("ERRO: Macro SSH_PASS não resolvida. Verifique a configuração do host no Zabbix.")
             sys.exit(1)
             
         collect(ip, port, user, password, hostname)
     else:
-        print("ERRO: Modo desconhecido. Use launch_discovery ou collect.", file=sys.stderr)
-        sys.exit(2)
+        print("Modo desconhecido")
 
 if __name__ == '__main__':
     main()
