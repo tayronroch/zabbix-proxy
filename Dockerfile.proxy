@@ -172,11 +172,6 @@ RUN echo '#!/bin/bash' > /usr/local/bin/start-zabbix-proxy.sh && \
     echo '    echo "Timeout=$ZBX_TIMEOUT" >> /etc/zabbix/zabbix_proxy.conf' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo 'fi' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo '' >> /usr/local/bin/start-zabbix-proxy.sh && \
-    echo '# Configurar compressão de dados' >> /usr/local/bin/start-zabbix-proxy.sh && \
-    echo 'if [ ! -z "$ZBX_COMPRESS_DATA" ]; then' >> /usr/local/bin/start-zabbix-proxy.sh && \
-    echo '    echo "CompressData=$ZBX_COMPRESS_DATA" >> /etc/zabbix/zabbix_proxy.conf' >> /usr/local/bin/start-zabbix-proxy.sh && \
-    echo 'fi' >> /usr/local/bin/start-zabbix-proxy.sh && \
-    echo '' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo '# Configurar buffer local' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo 'if [ ! -z "$ZBX_LOCAL_BUFFER" ]; then' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo '    echo "LocalBuffer=$ZBX_LOCAL_BUFFER" >> /etc/zabbix/zabbix_proxy.conf' >> /usr/local/bin/start-zabbix-proxy.sh && \
