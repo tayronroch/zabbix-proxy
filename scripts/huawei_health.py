@@ -37,10 +37,21 @@ def ssh_multiple_commands(ip, port, user, password, commands):
     client.connect(ip, port=int(port), username=user, password=password, look_for_keys=False)
     
     results = {}
+    import time
+    
     for cmd_name, command in commands.items():
-        stdin, stdout, stderr = client.exec_command(command)
-        output = stdout.read().decode('utf-8', errors='ignore')
-        results[cmd_name] = output
+        try:
+            logger.info("Executando comando: %s", cmd_name)
+            stdin, stdout, stderr = client.exec_command(command)
+            output = stdout.read().decode('utf-8', errors='ignore')
+            results[cmd_name] = output
+            
+            # Pequeno delay entre comandos para não sobrecarregar
+            time.sleep(0.5)
+            
+        except Exception as e:
+            logger.error("Erro ao executar comando %s: %s", cmd_name, str(e))
+            results[cmd_name] = ""
     
     client.close()
     return results
@@ -191,9 +202,30 @@ def launch_discovery(ip, port, user, password, hostname):
         'health': 'display health | no-more'
     }
     
-    # Executa todos os comandos em uma única sessão SSH
+    # Tenta executar todos os comandos em uma única sessão SSH
     logger.info("Executando todos os comandos em uma única sessão SSH...")
-    results = ssh_multiple_commands(ip, port, user, password, commands)
+    try:
+        results = ssh_multiple_commands(ip, port, user, password, commands)
+        
+        # Verifica se todos os comandos foram executados com sucesso
+        if not all(results.values()):
+            logger.warning("Alguns comandos falharam, usando método original...")
+            raise Exception("Comandos falharam")
+            
+    except Exception as e:
+        logger.error("Erro na sessão SSH otimizada: %s", str(e))
+        logger.info("Usando método original com múltiplas conexões...")
+        
+        # Fallback para método original
+        results = {}
+        results['temperature'] = ssh_command(ip, port, user, password, commands['temperature'])
+        results['power'] = ssh_command(ip, port, user, password, commands['power'])
+        results['cpu'] = ssh_command(ip, port, user, password, commands['cpu'])
+        results['memory'] = ssh_command(ip, port, user, password, commands['memory'])
+        results['version'] = ssh_command(ip, port, user, password, commands['version'])
+        results['fan'] = ssh_command(ip, port, user, password, commands['fan'])
+        results['power_supply'] = ssh_command(ip, port, user, password, commands['power_supply'])
+        results['health'] = ssh_command(ip, port, user, password, commands['health'])
     
     # ===== PROCESSAMENTO DE TEMPERATURA =====
     logger.info("Processando dados de temperatura...")
