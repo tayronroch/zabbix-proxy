@@ -80,6 +80,61 @@ def parse_uptime(version_output):
         return uptime
     return "unknown"
 
+def parse_fan_speed(fan_output):
+    """Parse velocidade dos ventiladores"""
+    speeds = []
+    for line in fan_output.splitlines():
+        # Procura por padrões de velocidade de fan
+        m = re.search(r'\[(\d+)\](\d+)%', line)
+        if m:
+            fan_num = m.group(1)
+            speed = int(m.group(2))
+            speeds.append(speed)
+    
+    if speeds:
+        return sum(speeds) / len(speeds)  # Média das velocidades
+    return -1
+
+def parse_power_info(power_output):
+    """Parse informações de energia para discovery"""
+    power_data = []
+    
+    for line in power_output.splitlines():
+        # Procura por linhas de power supply
+        m = re.match(r'(\d+)\s+Yes\s+(\w+)\s+(\w+)', line.strip())
+        if m:
+            slot = m.group(1)
+            mode = m.group(2)
+            state = m.group(3)
+            
+            # Determina status baseado no state
+            status = 1 if state == "Normal" else 0
+            
+            power_data.append({
+                "{#SLOT}": slot,
+                "{#MODE}": mode,
+                "{#STATE}": state,
+                "{#STATUS}": status
+            })
+    
+    return power_data
+
+def parse_power_supply_info(power_supply_output):
+    """Parse informações de power supply"""
+    m = re.search(r'Real\s+(\d+)', power_supply_output)
+    return int(m.group(1)) if m else -1
+
+def parse_health_info(health_output):
+    """Parse informações de saúde do sistema"""
+    m = re.search(r'(\d+)%\s+(\d+)%\s+(\d+)MB/(\d+)MB', health_output)
+    if m:
+        cpu_usage = int(m.group(1))
+        memory_usage = int(m.group(2))
+        memory_used = int(m.group(3))
+        memory_total = int(m.group(4))
+        return cpu_usage, memory_usage, memory_used, memory_total
+    return -1, -1, -1, -1
+
 def parse_ipu_temperature_full(temperature_output):
     result = []
     current_slot = "unknown" # Inicializa com unknown ou um valor padrão
@@ -154,12 +209,32 @@ def collect_original(ip, port, user, password, hostname):
     version = parse_version(version_out)
     uptime = parse_uptime(version_out)
 
-    # Temperaturas IPU (vai usar cache se ja foi executado no discovery)
+    # Temperaturas IPU
     command_temp = "display temperature ipu | no-more"
     output_temp = ssh_command(ip, port, user, password, command_temp)
     full_sensors = parse_ipu_temperature_full(output_temp)
 
-    # Envia cada leitura individualmente para evitar erro de lote
+    # NOVOS COMANDOS - Fan/Ventiladores
+    cmd_fan = "display fan | no-more"
+    fan_out = ssh_command(ip, port, user, password, cmd_fan)
+    fan_speed = parse_fan_speed(fan_out)
+
+    # NOVOS COMANDOS - Power/Energia
+    cmd_power = "display power | no-more"
+    power_out = ssh_command(ip, port, user, password, cmd_power)
+    power_info = parse_power_info(power_out)
+
+    # NOVOS COMANDOS - Power Supply Info
+    cmd_power_supply = "display power-supply information | no-more"
+    power_supply_out = ssh_command(ip, port, user, password, cmd_power_supply)
+    total_power = parse_power_supply_info(power_supply_out)
+
+    # NOVOS COMANDOS - Health
+    cmd_health = "display health | no-more"
+    health_out = ssh_command(ip, port, user, password, cmd_health)
+    health_cpu, health_mem_pct, health_mem_used, health_mem_total = parse_health_info(health_out)
+
+    # Envia temperaturas
     for entry in full_sensors:
         key = f'temperatureInfo[{entry["{#SLOT}"]},{entry["{#SENSOR_NAME}"]},{entry["{#I2C}"]},{entry["{#ADDR}"]},{entry["{#CHL}"]}]'
         value = entry["TEMP"]
@@ -186,6 +261,21 @@ def collect_original(ip, port, user, password, hostname):
         subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "firmwareVersion", "-o", version], capture_output=True, timeout=10)
     if uptime != "unknown":
         subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "firmwareUptime", "-o", uptime], capture_output=True, timeout=10)
+    
+    # NOVOS DADOS - Fan
+    if fan_speed != -1:
+        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "fanMean", "-o", str(fan_speed)], capture_output=True, timeout=10)
+    
+    # NOVOS DADOS - Power
+    if total_power != -1:
+        subprocess.run(["zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "total_power_usage", "-o", str(total_power)], capture_output=True, timeout=10)
+
+    # Envia discovery de power
+    if power_info:
+        subprocess.run([
+            "zabbix_sender", "-z", "127.0.0.1", "-s", hostname,
+            "-k", "powerInfo", "-o", json.dumps({"data": power_info})
+        ], capture_output=True, timeout=15)
 
 def launch_discovery_and_collect(ip, port, user, password, hostname):
     """Executa discovery e coleta usando as funcoes originais que funcionavam - OTIMIZADO"""
