@@ -20,29 +20,9 @@ services:
       ZBX_SERVER_PORT: ${ZBX_SERVER_PORT:-10051}
       ZBX_TIMEOUT: ${ZBX_TIMEOUT:-30}
       
-      # Configurações de buffer otimizadas
-      ZBX_LOCAL_BUFFER: ${ZBX_LOCAL_BUFFER:-2880}
-      ZBX_OFFLINE_BUFFER: ${ZBX_OFFLINE_BUFFER:-4320}
-      
-      # Configurações de cache para alta carga (Zabbix Proxy 7.0)
-      ZBX_HISTORY_CACHE_SIZE: ${ZBX_HISTORY_CACHE_SIZE:-256M}
-      ZBX_HISTORY_INDEX_CACHE_SIZE: ${ZBX_HISTORY_INDEX_CACHE_SIZE:-64M}
-      
-      # Configurações de processos
-      ZBX_START_POLLERS: ${ZBX_START_POLLERS:-50}
-      ZBX_START_PINGPOLLERS: ${ZBX_START_PINGPOLLERS:-20}
-      ZBX_START_TRAPPERS: ${ZBX_START_TRAPPERS:-20}
-      ZBX_START_DISCOVERERS: ${ZBX_START_DISCOVERERS:-10}
-      
-      # Configurações de performance
-      ZBX_UNREACHABLE_DELAY: ${ZBX_UNREACHABLE_DELAY:-60}
-      ZBX_UNAVAILABLE_DELAY: ${ZBX_UNAVAILABLE_DELAY:-300}
-      ZBX_HOUSEKEEPING_FREQUENCY: ${ZBX_HOUSEKEEPING_FREQUENCY:-1}
-      ZBX_MAX_HOUSEKEEPER_DELETE: ${ZBX_MAX_HOUSEKEEPER_DELETE:-50000}
-      
-      # Configurações de log
-      ZBX_LOG_LEVEL: ${ZBX_LOG_LEVEL:-3}
-      ZBX_DEBUG_LEVEL: ${ZBX_DEBUG_LEVEL:-3}
+      # IMPORTANTE: Todas as configurações de performance estão definidas
+      # diretamente no zabbix_proxy.conf dentro do Dockerfile
+      # Não usar variáveis ZBX_START_* pois podem não ser suportadas pelo Zabbix 7.0
     
     # O Zabbix Proxy se conecta ativamente ao Zabbix Server
     # Nao precisa expor a porta 10051 externamente
