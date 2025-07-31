@@ -206,9 +206,21 @@ RUN echo '#!/bin/bash' > /usr/local/bin/start-zabbix-proxy.sh && \
     echo 'chown zabbix:zabbix /var/log/zabbix/zabbix_proxy.log' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo 'chmod 644 /var/log/zabbix/zabbix_proxy.log' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo '' >> /usr/local/bin/start-zabbix-proxy.sh && \
-    echo '# Iniciar Zabbix Proxy' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '# Iniciar Zabbix Proxy com loop para manter rodando' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo 'echo "$(date): Iniciando Zabbix Proxy..."' >> /usr/local/bin/start-zabbix-proxy.sh && \
-    echo 'exec zabbix_proxy -f -c /etc/zabbix/zabbix_proxy.conf' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'while true; do' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '    echo "$(date): Tentando conectar ao Zabbix Server..."' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '    zabbix_proxy -f -c /etc/zabbix/zabbix_proxy.conf' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '    EXIT_CODE=$?' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '    echo "$(date): Zabbix Proxy encerrou com código $EXIT_CODE"' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '    if [ $EXIT_CODE -eq 0 ]; then' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '        echo "$(date): Proxy encerrado normalmente"' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '        break' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '    else' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '        echo "$(date): Proxy falhou, aguardando 30s antes de tentar novamente..."' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '        sleep 30' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '    fi' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'done' >> /usr/local/bin/start-zabbix-proxy.sh && \
     chmod +x /usr/local/bin/start-zabbix-proxy.sh
 
 # Criar arquivo de configuração otimizado para alta carga
