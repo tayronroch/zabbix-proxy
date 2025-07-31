@@ -264,9 +264,6 @@ RUN echo "# Configuração básica" > /etc/zabbix/zabbix_proxy.conf && \
     echo "UnreachableDelay=60" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "UnavailableDelay=300" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "# Configuração de compressão para otimizar tráfego" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "Compression=1" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "# Configurações de fping" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "FpingLocation=/usr/bin/fping" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "Fping6Location=/usr/bin/fping6" >> /etc/zabbix/zabbix_proxy.conf && \
