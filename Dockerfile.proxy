@@ -138,6 +138,12 @@ COPY scripts/ /usr/lib/zabbix/externalscripts/
 RUN chmod +x /usr/lib/zabbix/externalscripts/*.py && \
     chown -R zabbix:zabbix /usr/lib/zabbix/externalscripts/
 
+# Configurar cron para monitoramento do banco
+RUN apt-get update && apt-get install -y cron && \
+    echo "0 2 * * * zabbix /usr/bin/python3 /usr/lib/zabbix/externalscripts/db_monitor.py" > /etc/cron.d/zabbix-db-monitor && \
+    chmod 0644 /etc/cron.d/zabbix-db-monitor && \
+    crontab /etc/cron.d/zabbix-db-monitor
+
 # Criar script de inicialização melhorado
 RUN echo '#!/bin/bash' > /usr/local/bin/start-zabbix-proxy.sh && \
     echo 'set -e' >> /usr/local/bin/start-zabbix-proxy.sh && \
@@ -193,19 +199,67 @@ RUN echo '#!/bin/bash' > /usr/local/bin/start-zabbix-proxy.sh && \
     echo 'echo "$(date): Verificando scripts externos..."' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo 'ls -la /usr/lib/zabbix/externalscripts/' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo '' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '# Iniciar cron para monitoramento do banco' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'echo "$(date): Iniciando cron..."' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'service cron start' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '# Verificar tamanho inicial do banco' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'if [ -f /var/lib/zabbix/zabbix_proxy.db ]; then' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '    DB_SIZE=$(du -h /var/lib/zabbix/zabbix_proxy.db | cut -f1)' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '    echo "$(date): Tamanho atual do banco: $DB_SIZE"' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo 'fi' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo '# Iniciar Zabbix Proxy' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo 'echo "$(date): Iniciando Zabbix Proxy..."' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo 'exec zabbix_proxy -f -c /etc/zabbix/zabbix_proxy.conf' >> /usr/local/bin/start-zabbix-proxy.sh && \
     chmod +x /usr/local/bin/start-zabbix-proxy.sh
 
-# Criar arquivo de configuração básico
-RUN echo "Hostname=corewise-proxy" > /etc/zabbix/zabbix_proxy.conf && \
+# Criar arquivo de configuração otimizado para alta carga
+RUN echo "# Configuração básica" > /etc/zabbix/zabbix_proxy.conf && \
+    echo "Hostname=corewise-proxy" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "LogFile=/var/log/zabbix/zabbix_proxy.log" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "PidFile=/run/zabbix/zabbix_proxy.pid" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "DBHost=localhost" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "DBName=/var/lib/zabbix/zabbix_proxy.db" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "DBUser=zabbix" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "ExternalScripts=/usr/lib/zabbix/externalscripts" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "# Configurações de cache otimizadas para 15k+ itens" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "HistoryCacheSize=256M" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "TrendCacheSize=128M" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "HistoryIndexCacheSize=64M" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "# Configurações de processos para alta carga" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "StartPollers=50" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "StartIPMIPollers=5" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "StartPingPollers=20" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "StartDiscoverers=10" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "StartHTTPPollers=5" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "StartTimers=5" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "StartEscalators=5" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "StartTrappers=20" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "# Configurações de performance" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "UnreachableDelay=60" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "UnavailableDelay=300" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "ProxyConfigFrequency=10" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "ProxyDataFrequency=1" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "HousekeepingFrequency=1" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "MaxHousekeeperDelete=100000" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "# Configurações de log" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "LogLevel=3" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "LogFileSize=50" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "DebugLevel=3" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "# Configurações de timeouts" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "Timeout=30" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "SNMPTrapperTimeout=10" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "ExternalScriptsTimeout=30" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "# Configurações de fping" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "FpingLocation=/usr/bin/fping" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "Fping6Location=/usr/bin/fping6" >> /etc/zabbix/zabbix_proxy.conf && \
     chown zabbix:zabbix /etc/zabbix/zabbix_proxy.conf
 
 # O Zabbix Proxy se conecta ativamente ao Zabbix Server

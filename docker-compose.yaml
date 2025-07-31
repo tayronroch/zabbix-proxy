@@ -1,8 +1,8 @@
-version: '3.5'
+version: '3.8'
 
-# 🚀 CoreWise Zabbix Proxy + Scripts SSH
+# 🚀 CoreWise Zabbix Proxy + Scripts SSH - Configuração Otimizada
 # Sistema de proxy para monitoramento distribuído com coleta SSH
-# Controle de acesso via firewall
+# Otimizado para alta carga (15k+ itens) - Deploy via Coolify
 
 services:
   zabbix-proxy:
@@ -11,35 +11,92 @@ services:
       dockerfile: Dockerfile.proxy
     image: corewise-zabbix-proxy:latest
     container_name: corewise-proxy
+    env_file:
+      - .env
     environment:
-      ZBX_HOSTNAME: corewise-proxy
-      ZBX_SERVER_HOST: 45.161.89.183
-      ZBX_SERVER_PORT: 10051
-      ZBX_TIMEOUT: 30
-      # Configurações de retenção de dados
-      ZBX_LOCAL_BUFFER: 720
-      ZBX_OFFLINE_BUFFER: 720
+      # Configurações básicas (podem ser sobrescritas pelo .env)
+      ZBX_HOSTNAME: ${ZBX_HOSTNAME:-corewise-proxy}
+      ZBX_SERVER_HOST: ${ZBX_SERVER_HOST:-45.161.89.183}
+      ZBX_SERVER_PORT: ${ZBX_SERVER_PORT:-10051}
+      ZBX_TIMEOUT: ${ZBX_TIMEOUT:-30}
+      
+      # Configurações de buffer otimizadas
+      ZBX_LOCAL_BUFFER: ${ZBX_LOCAL_BUFFER:-2880}
+      ZBX_OFFLINE_BUFFER: ${ZBX_OFFLINE_BUFFER:-4320}
+      
+      # Configurações de cache para alta carga
+      ZBX_HISTORY_CACHE_SIZE: ${ZBX_HISTORY_CACHE_SIZE:-256M}
+      ZBX_TREND_CACHE_SIZE: ${ZBX_TREND_CACHE_SIZE:-128M}
+      ZBX_HISTORY_INDEX_CACHE_SIZE: ${ZBX_HISTORY_INDEX_CACHE_SIZE:-64M}
+      
+      # Configurações de processos
+      ZBX_START_POLLERS: ${ZBX_START_POLLERS:-50}
+      ZBX_START_PINGPOLLERS: ${ZBX_START_PINGPOLLERS:-20}
+      ZBX_START_TRAPPERS: ${ZBX_START_TRAPPERS:-20}
+      ZBX_START_DISCOVERERS: ${ZBX_START_DISCOVERERS:-10}
+      
+      # Configurações de performance
+      ZBX_UNREACHABLE_DELAY: ${ZBX_UNREACHABLE_DELAY:-60}
+      ZBX_UNAVAILABLE_DELAY: ${ZBX_UNAVAILABLE_DELAY:-300}
+      ZBX_HOUSEKEEPING_FREQUENCY: ${ZBX_HOUSEKEEPING_FREQUENCY:-1}
+      ZBX_MAX_HOUSEKEEPER_DELETE: ${ZBX_MAX_HOUSEKEEPER_DELETE:-50000}
+      
+      # Configurações de log
+      ZBX_LOG_LEVEL: ${ZBX_LOG_LEVEL:-3}
+      ZBX_DEBUG_LEVEL: ${ZBX_DEBUG_LEVEL:-3}
+    
     # O Zabbix Proxy se conecta ativamente ao Zabbix Server
     # Nao precisa expor a porta 10051 externamente
     # ports:
     #   - "10051:10051/tcp"
-    restart: always
+    
+    restart: unless-stopped
+    
     dns:
-      - 8.8.8.8
-      - 8.8.4.4
+      - ${DNS_PRIMARY:-8.8.8.8}
+      - ${DNS_SECONDARY:-8.8.4.4}
+    
     networks:
       - zabbix-network
+    
+    volumes:
+      # Persistir dados do banco SQLite
+      - zabbix-data:/var/lib/zabbix
+      # Persistir logs
+      - zabbix-logs:/var/log/zabbix
+      # Melhorar performance com tmpfs para dados temporários
+      - type: tmpfs
+        target: /tmp
+        tmpfs:
+          size: 1G
+    
     deploy:
       resources:
         limits:
-          memory: 4G
-          cpus: '4.0'
+          memory: ${CONTAINER_MEMORY_LIMIT:-8G}
+          cpus: ${CONTAINER_CPU_LIMIT:-6.0}
         reservations:
-          memory: 2G
-          cpus: '2.0'
+          memory: ${CONTAINER_MEMORY_RESERVATION:-4G}
+          cpus: ${CONTAINER_CPU_RESERVATION:-3.0}
+    
+    healthcheck:
+      test: ["CMD", "zabbix_get", "-s", "localhost", "-k", "zabbix[host,zabbix-proxy,available]"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
     labels:
       - "coolify.managed=true"
+      - "coolify.name=zabbix-proxy"
+      - "coolify.description=Zabbix Proxy para monitoramento distribuído - 15k+ itens"
+
+volumes:
+  zabbix-data:
+    driver: local
+  zabbix-logs:
+    driver: local
 
 networks:
   zabbix-network:
-    driver: bridge 
+    driver: bridge
