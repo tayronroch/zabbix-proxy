@@ -23,8 +23,8 @@ ZBX_SERVER_PORT=10051
 ZBX_LOCAL_BUFFER=8760       # 1 ano de dados locais
 ZBX_OFFLINE_BUFFER=17520    # 2 anos de dados offline
 ZBX_HISTORY_CACHE_SIZE=256M
-ZBX_TREND_CACHE_SIZE=128M
 ZBX_HISTORY_INDEX_CACHE_SIZE=64M
+# NOTA: TrendCacheSize removido - não suportado no Zabbix Proxy 7.0
 
 # Configurações de retenção para grandes volumes
 ZBX_DB_MAX_SIZE_GB=280                    # Limite de 280GB

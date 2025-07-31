@@ -24,9 +24,8 @@ services:
       ZBX_LOCAL_BUFFER: ${ZBX_LOCAL_BUFFER:-2880}
       ZBX_OFFLINE_BUFFER: ${ZBX_OFFLINE_BUFFER:-4320}
       
-      # Configurações de cache para alta carga
+      # Configurações de cache para alta carga (Zabbix Proxy 7.0)
       ZBX_HISTORY_CACHE_SIZE: ${ZBX_HISTORY_CACHE_SIZE:-256M}
-      ZBX_TREND_CACHE_SIZE: ${ZBX_TREND_CACHE_SIZE:-128M}
       ZBX_HISTORY_INDEX_CACHE_SIZE: ${ZBX_HISTORY_INDEX_CACHE_SIZE:-64M}
       
       # Configurações de processos

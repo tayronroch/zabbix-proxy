@@ -226,7 +226,6 @@ RUN echo "# Configuração básica" > /etc/zabbix/zabbix_proxy.conf && \
     echo "" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "# Configurações de cache otimizadas para 15k+ itens" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "HistoryCacheSize=256M" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "TrendCacheSize=128M" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "HistoryIndexCacheSize=64M" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "# Configurações de processos para alta carga" >> /etc/zabbix/zabbix_proxy.conf && \
