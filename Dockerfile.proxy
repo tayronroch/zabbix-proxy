@@ -173,6 +173,9 @@ RUN echo '#!/bin/bash' > /usr/local/bin/start-zabbix-proxy.sh && \
     echo '' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo '# Configurar servidor se fornecido' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo 'if [ ! -z "$ZBX_SERVER_HOST" ]; then' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '    echo "$(date): Configurando servidor Zabbix..."' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '    # Remover configuração existente de Server se houver' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '    sed -i "/^Server=/d" /etc/zabbix/zabbix_proxy.conf' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo '    if [ ! -z "$ZBX_SERVER_PORT" ]; then' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo '        echo "Server=$ZBX_SERVER_HOST:$ZBX_SERVER_PORT" >> /etc/zabbix/zabbix_proxy.conf' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo '    else' >> /usr/local/bin/start-zabbix-proxy.sh && \
@@ -182,6 +185,9 @@ RUN echo '#!/bin/bash' > /usr/local/bin/start-zabbix-proxy.sh && \
     echo '' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo '# Configurar timeout se fornecido' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo 'if [ ! -z "$ZBX_TIMEOUT" ]; then' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '    echo "$(date): Configurando timeout..."' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '    # Remover configuração existente de Timeout se houver' >> /usr/local/bin/start-zabbix-proxy.sh && \
+    echo '    sed -i "/^Timeout=/d" /etc/zabbix/zabbix_proxy.conf' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo '    echo "Timeout=$ZBX_TIMEOUT" >> /etc/zabbix/zabbix_proxy.conf' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo 'fi' >> /usr/local/bin/start-zabbix-proxy.sh && \
     echo '' >> /usr/local/bin/start-zabbix-proxy.sh && \
@@ -241,10 +247,8 @@ RUN echo "# Configuração básica" > /etc/zabbix/zabbix_proxy.conf && \
     echo "ExternalScripts=/usr/lib/zabbix/externalscripts" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "Server=45.161.89.183" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "# Configurações de cache ESSENCIAIS" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "# Configurações de cache para Zabbix 7.0 LTS" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "CacheSize=1G" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "ConfigCacheSize=1G" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "DataSenderCacheSize=1G" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "HistoryCacheSize=512M" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "HistoryIndexCacheSize=128M" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "TrendCacheSize=256M" >> /etc/zabbix/zabbix_proxy.conf && \
