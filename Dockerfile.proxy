@@ -251,8 +251,6 @@ RUN echo "# Configuração básica" > /etc/zabbix/zabbix_proxy.conf && \
     echo "CacheSize=1G" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "HistoryCacheSize=512M" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "HistoryIndexCacheSize=128M" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "ValueCacheSize=1G" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "TrendFunctionCacheSize=256M" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "# Processos otimizados para alta carga" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "StartPollers=120" >> /etc/zabbix/zabbix_proxy.conf && \
