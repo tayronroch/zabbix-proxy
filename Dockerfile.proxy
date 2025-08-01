@@ -273,7 +273,7 @@ RUN echo "# Configuração básica" > /etc/zabbix/zabbix_proxy.conf && \
     echo "# Configurações de buffer otimizadas para Zabbix 7.0" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "ProxyBufferMode=hybrid" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "ProxyMemoryBufferSize=512M" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "ProxyMemoryBufferAge=5" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "ProxyMemoryBufferAge=600" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "# Configurações de log otimizadas" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "DebugLevel=3" >> /etc/zabbix/zabbix_proxy.conf && \
