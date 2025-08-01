@@ -276,9 +276,8 @@ RUN echo "# Configuração básica" > /etc/zabbix/zabbix_proxy.conf && \
     echo "ProxyMemoryBufferAge=5" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "# Configurações de log otimizadas" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "LogLevel=3" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "DebugLevel=3" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "LogFileSize=100M" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "LogFileCount=10" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "# Configurações de fping" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "FpingLocation=/usr/bin/fping" >> /etc/zabbix/zabbix_proxy.conf && \
