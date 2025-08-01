@@ -253,7 +253,8 @@ RUN echo "# Configuração básica" > /etc/zabbix/zabbix_proxy.conf && \
     echo "HistoryIndexCacheSize=512M" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "# Processos otimizados para alta carga - Zabbix 7.0 LTS" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "StartPollers=600" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "StartPollers=600" >> /etc/zabbix/zabbix_proxy.conf && \\
+    echo "StartPollersUnreachable=50" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "StartIPMIPollers=200" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "StartDiscoverers=300" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "StartHTTPPollers=200" >> /etc/zabbix/zabbix_proxy.conf && \
@@ -267,8 +268,8 @@ RUN echo "# Configuração básica" > /etc/zabbix/zabbix_proxy.conf && \
     echo "" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "# Configurações de timeout otimizadas" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "Timeout=30" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "UnreachableDelay=30" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "UnavailableDelay=180" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "UnreachableDelay=60" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "UnavailableDelay=300" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "# Configurações de buffer otimizadas para Zabbix 7.0" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "ProxyBufferMode=hybrid" >> /etc/zabbix/zabbix_proxy.conf && \
