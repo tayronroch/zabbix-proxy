@@ -1,0 +1,524 @@
+# ========================================
+# ZABBIX AGENT2 7.0 LTS - PARÂMETROS COMPLETOS
+# Guia completo de configuração do Zabbix Agent2
+# ========================================
+
+# ========================================
+# CARACTERÍSTICAS DO ZABBIX AGENT2
+# ========================================
+
+ZABBIX AGENT2 é o agente MODERNO do Zabbix:
+- Escrito em GO (substitui o Agent1 em C)
+- Suporte nativo a plugins
+- Melhor performance e menor uso de recursos
+- Coleta paralela de dados
+- Buffer persistente para dados críticos
+- Compatível com Agent1 (migração transparente)
+
+# ========================================
+# CONFIGURAÇÕES GERAIS
+# ========================================
+
+## IDENTIFICAÇÃO DO HOST
+Hostname
+    Tipo: String
+    Obrigatório: Não (pode usar HostnameItem)
+    Tamanho máximo: 128 caracteres por hostname
+    Padrão: Sistema define automaticamente
+    Descrição: Nome único do host (case-sensitive)
+    Exemplo: Hostname=webserver01
+
+HostnameItem
+    Tipo: String  
+    Obrigatório: Não
+    Padrão: system.hostname
+    Descrição: Item para obter hostname automaticamente
+    Exemplo: HostnameItem=system.hostname
+
+HostMetadata
+    Tipo: String
+    Obrigatório: Não
+    Tamanho máximo: 255 caracteres
+    Padrão: Vazio
+    Descrição: Metadados opcionais do host para autoregistro
+    Exemplo: HostMetadata=Linux server web
+
+HostMetadataItem
+    Tipo: String
+    Obrigatório: Não
+    Padrão: Vazio
+    Descrição: Item para obter metadados automaticamente
+    Exemplo: HostMetadataItem=system.uname
+
+HostInterface
+    Tipo: String
+    Obrigatório: Não
+    Tamanho máximo: 255 caracteres
+    Padrão: Vazio
+    Descrição: Interface opcional do host
+    Exemplo: HostInterface=eth0
+
+HostInterfaceItem
+    Tipo: String
+    Obrigatório: Não
+    Padrão: Vazio
+    Descrição: Item para obter interface automaticamente
+    Exemplo: HostInterfaceItem=net.if.discovery
+
+# ========================================
+# CONFIGURAÇÕES DE REDE
+# ========================================
+
+## CONFIGURAÇÕES DE SERVIDOR
+Server
+    Tipo: Lista separada por vírgulas
+    Obrigatório: Não (mas recomendado)
+    Padrão: 127.0.0.1
+    Formato: IP ou DNS[:porta]
+    Descrição: Lista de servidores/proxies Zabbix permitidos
+    Exemplo: Server=192.168.1.10,zabbix.empresa.com
+
+ServerActive
+    Tipo: Lista separada por vírgulas
+    Obrigatório: Não
+    Padrão: Vazio
+    Formato: IP ou DNS[:porta]
+    Descrição: Servidores para verificações ativas
+    Exemplo: ServerActive=192.168.1.10:10051
+
+## CONFIGURAÇÕES DE ESCUTA
+ListenPort
+    Tipo: Inteiro
+    Obrigatório: Não
+    Faixa: 1024-32767
+    Padrão: 10050
+    Descrição: Porta para escutar conexões do servidor
+    Exemplo: ListenPort=10050
+
+ListenIP
+    Tipo: Lista separada por vírgulas
+    Obrigatório: Não
+    Padrão: 0.0.0.0 (todas as interfaces)
+    Descrição: IPs para escutar conexões
+    Exemplo: ListenIP=192.168.1.100,127.0.0.1
+
+## CONFIGURAÇÕES DE ORIGEM
+SourceIP
+    Tipo: String (IP)
+    Obrigatório: Não
+    Padrão: Vazio
+    Descrição: IP de origem para conexões ativas
+    Exemplo: SourceIP=192.168.1.100
+
+# ========================================
+# CONFIGURAÇÕES DE TIMEOUT E FREQUÊNCIA
+# ========================================
+
+Timeout
+    Tipo: Inteiro
+    Obrigatório: Não
+    Faixa: 1-30 segundos
+    Padrão: 3 segundos
+    Descrição: Timeout para conexões com servidor/proxy
+    Exemplo: Timeout=10
+
+RefreshActiveChecks
+    Tipo: Inteiro
+    Obrigatório: Não
+    Faixa: 1-3600 segundos
+    Padrão: 60 segundos
+    Descrição: Frequência de atualização de itens ativos
+    Exemplo: RefreshActiveChecks=120
+
+HeartbeatFrequency
+    Tipo: Inteiro
+    Obrigatório: Não
+    Faixa: 0-3600 segundos (0=desabilitado)
+    Padrão: 0 (desabilitado)
+    Descrição: Frequência de heartbeat para servidor
+    Exemplo: HeartbeatFrequency=60
+
+# ========================================
+# CONFIGURAÇÕES DE BUFFER
+# ========================================
+
+BufferSize
+    Tipo: Inteiro
+    Obrigatório: Não
+    Faixa: 2-65535
+    Padrão: 1000
+    Descrição: Número máximo de valores no buffer de memória
+    Nota: Inválido se EnablePersistentBuffer=1
+    Exemplo: BufferSize=5000
+
+BufferSend
+    Tipo: Inteiro
+    Obrigatório: Não
+    Faixa: 1-3600 segundos
+    Padrão: 5 segundos
+    Descrição: Não manter dados no buffer por mais que N segundos
+    Exemplo: BufferSend=10
+
+EnablePersistentBuffer
+    Tipo: Inteiro
+    Obrigatório: Não
+    Valores: 0 (desabilitado), 1 (habilitado)
+    Padrão: 0 (desabilitado)
+    Descrição: Usar armazenamento persistente local para itens ativos
+    Exemplo: EnablePersistentBuffer=1
+
+PersistentBufferPeriod
+    Tipo: String (tempo)
+    Obrigatório: Não
+    Padrão: 1h
+    Formato: Ns, Nm, Nh, Nd (segundos, minutos, horas, dias)
+    Descrição: Período para manter dados sem conectividade
+    Exemplo: PersistentBufferPeriod=2h
+
+PersistentBufferFile
+    Tipo: String
+    Obrigatório: Não
+    Padrão: Vazio (arquivo temporário)
+    Descrição: Caminho do arquivo de buffer persistente
+    Exemplo: PersistentBufferFile=/var/lib/zabbix/buffer.db
+
+# ========================================
+# CONFIGURAÇÕES DE LOG
+# ========================================
+
+LogType
+    Tipo: String
+    Obrigatório: Não
+    Valores: system, file, console
+    Padrão: file
+    Descrição: Tipo de log
+    Exemplo: LogType=file
+
+LogFile
+    Tipo: String
+    Obrigatório: Sim (se LogType=file)
+    Padrão: Vazio
+    Descrição: Caminho do arquivo de log
+    Exemplo: LogFile=/var/log/zabbix/zabbix_agent2.log
+
+LogFileSize
+    Tipo: Inteiro
+    Obrigatório: Não
+    Faixa: 0-1024 MB (0=sem rotação)
+    Padrão: 1 MB
+    Descrição: Tamanho máximo do arquivo de log
+    Exemplo: LogFileSize=10
+
+DebugLevel
+    Tipo: Inteiro
+    Obrigatório: Não
+    Faixa: 0-5
+    Padrão: 3
+    Valores: 0=emergência, 1=erro, 2=warning, 3=info, 4=debug, 5=trace
+    Descrição: Nível de debug/verbosidade
+    Exemplo: DebugLevel=3
+
+# ========================================
+# CONFIGURAÇÕES DE SEGURANÇA
+# ========================================
+
+## EXECUÇÃO SEGURA
+AllowRoot
+    Tipo: Inteiro
+    Obrigatório: Não
+    Valores: 0 (não permitir), 1 (permitir)
+    Padrão: 0
+    Descrição: Permitir execução como root
+    Exemplo: AllowRoot=0
+
+User
+    Tipo: String
+    Obrigatório: Não
+    Padrão: zabbix
+    Descrição: Usuário para executar o agent
+    Exemplo: User=zabbix
+
+## CONTROLE DE ACESSO A CHAVES
+AllowKey
+    Tipo: String (padrão regex)
+    Obrigatório: Não
+    Padrão: Vazio
+    Descrição: Permitir execução de chaves específicas
+    Exemplo: AllowKey=system.run[*]
+
+DenyKey  
+    Tipo: String (padrão regex)
+    Obrigatório: Não
+    Padrão: Vazio
+    Descrição: Negar execução de chaves específicas
+    Exemplo: DenyKey=system.run[rm *]
+
+## CONFIGURAÇÕES TLS/CRIPTOGRAFIA
+TLSConnect
+    Tipo: String
+    Obrigatório: Não
+    Valores: unencrypted, psk, cert
+    Padrão: unencrypted
+    Descrição: Tipo de conexão para verificações ativas
+    Exemplo: TLSConnect=psk
+
+TLSAccept
+    Tipo: Lista separada por vírgulas
+    Obrigatório: Não
+    Valores: unencrypted, psk, cert
+    Padrão: unencrypted
+    Descrição: Tipos de conexão aceitos
+    Exemplo: TLSAccept=unencrypted,psk
+
+TLSCAFile
+    Tipo: String
+    Obrigatório: Não
+    Padrão: Vazio
+    Descrição: Arquivo CA para verificação de certificados
+    Exemplo: TLSCAFile=/etc/zabbix/ca.crt
+
+TLSCertFile
+    Tipo: String
+    Obrigatório: Sim (se cert usado)
+    Padrão: Vazio
+    Descrição: Arquivo de certificado do agent
+    Exemplo: TLSCertFile=/etc/zabbix/agent.crt
+
+TLSKeyFile
+    Tipo: String
+    Obrigatório: Sim (se cert usado)
+    Padrão: Vazio
+    Descrição: Arquivo de chave privada do agent
+    Exemplo: TLSKeyFile=/etc/zabbix/agent.key
+
+TLSServerCertIssuer
+    Tipo: String
+    Obrigatório: Não
+    Padrão: Vazio
+    Descrição: Emissor permitido do certificado do servidor
+    Exemplo: TLSServerCertIssuer=CN=Zabbix CA
+
+TLSServerCertSubject
+    Tipo: String
+    Obrigatório: Não
+    Padrão: Vazio
+    Descrição: Assunto permitido do certificado do servidor
+    Exemplo: TLSServerCertSubject=CN=Zabbix Server
+
+TLSCRLFile
+    Tipo: String
+    Obrigatório: Não
+    Padrão: Vazio
+    Descrição: Arquivo de lista de revogação de certificados
+    Exemplo: TLSCRLFile=/etc/zabbix/crl.pem
+
+TLSPSKIdentity
+    Tipo: String
+    Obrigatório: Sim (se psk usado)
+    Padrão: Vazio
+    Descrição: Identidade da chave pré-compartilhada
+    Exemplo: TLSPSKIdentity=PSK001
+
+TLSPSKFile
+    Tipo: String
+    Obrigatório: Sim (se psk usado)
+    Padrão: Vazio
+    Descrição: Arquivo com chave pré-compartilhada
+    Exemplo: TLSPSKFile=/etc/zabbix/agent.psk
+
+# ========================================
+# CONFIGURAÇÕES DE ARQUIVO PID E SISTEMA
+# ========================================
+
+PidFile
+    Tipo: String
+    Obrigatório: Não
+    Padrão: /tmp/zabbix_agent2.pid
+    Descrição: Arquivo de PID do processo
+    Exemplo: PidFile=/var/run/zabbix/zabbix_agent2.pid
+
+Include
+    Tipo: String ou lista
+    Obrigatório: Não
+    Padrão: Vazio
+    Descrição: Arquivos de configuração adicionais
+    Exemplo: Include=/etc/zabbix/agent2.d/*.conf
+
+# ========================================
+# CONFIGURAÇÕES DE PLUGINS
+# ========================================
+
+## CONFIGURAÇÕES GERAIS DE PLUGINS
+PluginTimeout
+    Tipo: Inteiro
+    Obrigatório: Não
+    Faixa: 1-30 segundos
+    Padrão: 10 segundos
+    Descrição: Timeout para conexões com plugins externos
+    Exemplo: PluginTimeout=15
+
+PluginSocket
+    Tipo: String
+    Obrigatório: Não
+    Padrão: /tmp/agent.plugin.sock
+    Descrição: Socket UNIX para comunicação com plugins
+    Exemplo: PluginSocket=/var/run/zabbix/plugins.sock
+
+## PLUGINS DE SISTEMA
+Plugins.SystemRun
+    Habilitado: Por padrão
+    Descrição: Execução de comandos do sistema
+    LogRemoteCommands: 0/1 (log de comandos remotos)
+
+## PLUGINS DE BANCO DE DADOS
+
+### Plugin MySQL
+Plugins.Mysql.CallTimeout
+    Tipo: Inteiro
+    Padrão: 10 segundos
+    Descrição: Timeout para queries MySQL
+
+Plugins.Mysql.Timeout
+    Tipo: Inteiro  
+    Padrão: 10 segundos
+    Descrição: Timeout de conexão MySQL
+
+### Plugin PostgreSQL
+Plugins.Postgres.CallTimeout
+    Tipo: Inteiro
+    Padrão: 10 segundos
+    Descrição: Timeout para queries PostgreSQL
+
+Plugins.Postgres.Timeout
+    Tipo: Inteiro
+    Padrão: 10 segundos
+    Descrição: Timeout de conexão PostgreSQL
+
+### Plugin MongoDB
+Plugins.Mongo.Timeout
+    Tipo: Inteiro
+    Padrão: 10 segundos
+    Descrição: Timeout de conexão MongoDB
+
+### Plugin Redis
+Plugins.Redis.Timeout
+    Tipo: Inteiro
+    Padrão: 10 segundos
+    Descrição: Timeout de conexão Redis
+
+## PLUGIN DE LOG
+Plugins.Log.MaxLinesPerSecond
+    Tipo: Inteiro
+    Obrigatório: Não
+    Faixa: 1-10000
+    Padrão: 20
+    Descrição: Limite de linhas processadas por segundo
+    Exemplo: Plugins.Log.MaxLinesPerSecond=100
+
+# ========================================
+# PARÂMETROS CUSTOMIZADOS
+# ========================================
+
+UserParameter
+    Tipo: String
+    Formato: chave,comando
+    Obrigatório: Não
+    Padrão: Vazio
+    Descrição: Parâmetros de usuário customizados
+    Exemplo: UserParameter=mysql.ping,mysqladmin ping
+
+UnsafeUserParameters
+    Tipo: Inteiro
+    Obrigatório: Não
+    Valores: 0 (seguro), 1 (inseguro)
+    Padrão: 0
+    Descrição: Permitir caracteres inseguros em parâmetros
+    Exemplo: UnsafeUserParameters=0
+
+# ========================================
+# CONFIGURAÇÕES RECOMENDADAS POR CENÁRIO
+# ========================================
+
+## SERVIDOR WEB BÁSICO
+Server=192.168.1.10
+ServerActive=192.168.1.10
+Hostname=webserver01
+BufferSize=2000
+BufferSend=5
+DebugLevel=3
+LogFileSize=10
+
+## SERVIDOR DE BANCO DE DADOS
+Server=192.168.1.10
+ServerActive=192.168.1.10
+Hostname=dbserver01
+BufferSize=5000
+BufferSend=3
+EnablePersistentBuffer=1
+PersistentBufferPeriod=1h
+Plugins.Mysql.Timeout=30
+
+## MONITORAMENTO CRÍTICO
+Server=192.168.1.10
+ServerActive=192.168.1.10
+Hostname=critical-server
+BufferSize=10000
+BufferSend=1  
+EnablePersistentBuffer=1
+PersistentBufferPeriod=4h
+HeartbeatFrequency=30
+TLSConnect=psk
+TLSAccept=psk
+
+# ========================================
+# TROUBLESHOOTING COMUM
+# ========================================
+
+## PROBLEMAS DE BUFFER
+"Buffer is full, cannot store persistent value"
+→ Aumentar BufferSize ou diminuir RefreshActiveChecks
+
+"Failed to send buffer data"  
+→ Verificar conectividade com Server/ServerActive
+→ Verificar se BufferSend não está muito baixo
+
+## PROBLEMAS DE CONEXÃO
+"Connection refused"
+→ Verificar se Server/ServerActive está correto
+→ Verificar se ListenPort está aberta no servidor
+
+"TLS handshake failed"
+→ Verificar configurações TLS (certificados, PSK)
+→ Verificar se TLSConnect/TLSAccept estão alinhados
+
+# ========================================
+# COMANDOS ÚTEIS PARA DIAGNÓSTICO
+# ========================================
+
+## Testar configuração:
+zabbix_agent2 -c /etc/zabbix/zabbix_agent2.conf -t
+
+## Testar item específico:
+zabbix_agent2 -c /etc/zabbix/zabbix_agent2.conf -p
+
+## Executar em foreground (debug):
+zabbix_agent2 -c /etc/zabbix/zabbix_agent2.conf -f
+
+## Verificar versão e plugins:
+zabbix_agent2 --version
+
+## Testar conectividade:
+zabbix_get -s agent_ip -k "agent.ping"
+zabbix_get -s agent_ip -k "system.uname"
+
+# ========================================
+# RESUMO FINAL
+# ========================================
+
+✅ AGENT2: Moderno, eficiente, com plugins nativos
+🔧 CONFIGURAÇÃO: Mais simples que Server/Proxy  
+🚀 PERFORMANCE: Buffer persistente e coleta paralela
+🔒 SEGURANÇA: TLS nativo e controle granular de chaves
+📦 PLUGINS: Sistema extensível para monitoramento especializado
+
+REGRA DE OURO: Agent2 é para COLETA de dados nos hosts monitorados!

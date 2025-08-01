@@ -1,0 +1,322 @@
+# ========================================
+# ZABBIX 7.0 LTS - PARÂMETROS PROXY vs SERVER
+# Guia completo de diferenças de configuração
+# ========================================
+
+# ========================================
+# IMPORTANTE - REGRA FUNDAMENTAL
+# ========================================
+
+ZABBIX PROXY é um COLETOR DE DADOS
+- Coleta dados dos dispositivos monitorados
+- Envia dados para o Zabbix Server
+- NÃO processa triggers, eventos ou alertas
+- NÃO possui interface web
+- Configuração mais simples e focada
+
+ZABBIX SERVER é o PROCESSADOR CENTRAL
+- Recebe dados dos proxies e agentes
+- Processa triggers e gera eventos
+- Envia alertas e notificações
+- Possui interface web completa
+- Configuração complexa e completa
+
+# ========================================
+# PARÂMETROS COMUNS (PROXY E SERVER)
+# ========================================
+
+## CONFIGURAÇÕES BÁSICAS
+Hostname                    # Nome único do componente
+Server                      # IP/DNS do servidor (apenas proxy)
+ListenPort                  # Porta de escuta (padrão: 10051)
+ListenIP                    # IP de escuta
+SourceIP                    # IP de origem para conexões
+
+## CONFIGURAÇÕES DE DATABASE
+DBHost                      # Host do banco de dados
+DBName                      # Nome do banco de dados
+DBUser                      # Usuário do banco
+DBPassword                  # Senha do banco
+DBSocket                    # Socket do banco (Unix)
+DBPort                      # Porta do banco
+
+## CONFIGURAÇÕES DE CACHE
+CacheSize                   # Cache de configuração (128K-64G)
+HistoryCacheSize           # Cache de histórico (128K-16G)
+HistoryIndexCacheSize      # Cache de índice (128K-16G)
+VMwareCacheSize            # Cache VMware (256K-2G)
+
+## CONFIGURAÇÕES DE PROCESSOS BÁSICOS
+StartPollers               # Pollers principais (0-1000)
+StartIPMIPollers           # Pollers IPMI (0-1000)
+StartPollersUnreachable    # Pollers para hosts inacessíveis (0-1000)
+StartTrappers              # Receptores de dados ativos (0-1000)
+StartPingers               # Processos de ping (0-1000) 
+StartDiscoverers           # Processos de descoberta (0-1000)
+StartHTTPPollers           # Pollers HTTP (0-1000)
+StartPreprocessors         # Preprocessadores (1-1000)
+StartDBSyncers             # Sincronizadores DB (1-100)
+
+## CONFIGURAÇÕES DE TIMEOUT
+Timeout                    # Timeout de conexão (1-30s)
+TrapperTimeout             # Timeout de trappers (1-300s)
+UnreachableDelay           # Delay para inacessíveis (1-3600s)
+UnreachablePeriod          # Período inacessível (1-3600s)
+UnavailableDelay           # Delay para indisponíveis (1-3600s)
+
+## CONFIGURAÇÕES DE LOG
+LogType                    # Tipo de log (system/file/console)
+LogFile                    # Arquivo de log
+LogFileSize                # Tamanho do arquivo de log (0-1024MB)
+LogFileCount               # Quantidade de arquivos de log (1-255)
+DebugLevel                 # Nível de debug (0-5)
+LogSlowQueries             # Log de queries lentas (0-3600000ms)
+
+## CONFIGURAÇÕES DE SEGURANÇA
+AllowRoot                  # Permitir execução como root (0/1)
+User                       # Usuário para executar o processo
+Include                    # Arquivos de configuração adicionais
+
+## CONFIGURAÇÕES DE REDE E SNMP
+SNMPTrapperFile           # Arquivo para SNMP traps
+StartSNMPTrapper          # Receptor SNMP (0/1)
+FpingLocation             # Localização do fping
+Fping6Location            # Localização do fping6
+
+## CONFIGURAÇÕES DE SCRIPTS
+ExternalScripts           # Diretório de scripts externos
+AlertScriptsPath          # Diretório de scripts de alerta
+
+# ========================================
+# PARÂMETROS EXCLUSIVOS DO ZABBIX PROXY
+# ========================================
+
+## CONFIGURAÇÕES DE MODO PROXY
+ProxyMode                  # Modo do proxy (0=ativo, 1=passivo)
+ConfigFrequency           # Frequência de sincronização (1-604800s)
+DataSenderFrequency       # Frequência de envio (1-3600s)
+
+## CONFIGURAÇÕES DE BUFFER (ZABBIX 7.0)
+ProxyLocalBuffer          # Buffer local (0-720h)
+ProxyOfflineBuffer        # Buffer offline (1-720h)
+ProxyBufferMode           # Modo buffer (disk/memory/hybrid)
+ProxyMemoryBufferSize     # Tamanho buffer memória (0,128K-2G)
+ProxyMemoryBufferAge      # Idade máxima buffer (1-86400s)
+
+## CONFIGURAÇÕES DE HEARTBEAT
+HeartbeatFrequency        # Frequência heartbeat (0-3600s)
+
+# ========================================
+# PARÂMETROS EXCLUSIVOS DO ZABBIX SERVER
+# ========================================
+
+## PROCESSAMENTO DE DADOS E TRIGGERS
+StartAlerters             # Processos de alerta (1-100)
+StartTimers               # Processos de timer (1-1000)
+StartEscalators           # Processos de escalation (1-100)
+
+## PROCESSAMENTO AVANÇADO (ZABBIX 7.0+)
+StartHistoryPollers       # Pollers de histórico (0-1000)
+StartLLDProcessors        # Processadores LLD (1-100)
+StartConnectors           # Conectores para integração (0-1000)
+StartReportWriters        # Escritores de relatório (0-100)
+StartServiceManager       # Gerenciador de serviços (0-1)
+
+## GESTÃO DE PROXIES
+StartProxyPollers         # Pollers para proxies passivos (0-250)
+ProxyConfigFrequency      # Frequência config para proxies (1-604800s)
+ProxyDataFrequency        # Frequência dados de proxies (1-3600s)
+
+## CONFIGURAÇÕES DE HOUSEKEEPING
+HousekeepingFrequency     # Frequência limpeza (0-24h)
+MaxHousekeeperDelete      # Max registros deletados por ciclo
+DeleteExpiredExportedPeriod # Período para deletar exports expirados
+
+## CONFIGURAÇÕES WEB E API
+WebDriverURL              # URL do driver web para testes
+SSHKeyLocation            # Localização das chaves SSH
+SSLCertLocation           # Localização certificado SSL
+SSLKeyLocation            # Localização chave SSL
+SSLCALocation             # Localização CA SSL
+
+## CONFIGURAÇÕES DE ALTA DISPONIBILIDADE
+HANodeName                # Nome do nó HA
+NodeAddress               # Endereço do nó
+
+## CONFIGURAÇÕES DE VAULT (SEGREDOS)
+VaultDBPath               # Caminho do DB no Vault
+VaultURL                  # URL do HashiCorp Vault
+
+## CONFIGURAÇÕES DE AUDITORIA E COMPLIANCE
+AuditLogEnabled           # Habilitar log de auditoria (0/1)
+
+## PROCESSADORES JAVA E VMWARE
+StartJavaPollers          # Pollers Java (0-1000)
+JavaGateway               # Gateway Java
+JavaGatewayPort           # Porta do gateway Java
+StartJavaPollers          # Número de pollers Java
+
+StartVMwareCollectors     # Coletores VMware (0-250)
+VMwareFrequency           # Frequência coleta VMware (10-86400s)
+VMwarePerfFrequency       # Frequência performance VMware (10-86400s)
+VMwareCacheSize           # Cache VMware (256K-2G)
+VMwareTimeout             # Timeout VMware (1-300s)
+
+## OUTROS PROCESSADORES ESPECIALIZADOS
+StartSNMPPollers          # Pollers SNMP específicos (0-1000)
+StartAgentPollers         # Pollers de agentes (0-1000)
+StartHTTPAgentPollers     # Pollers HTTP Agent (0-1000)
+StartBrowserPollers       # Pollers de browser (0-1000)
+StartODBCPollers          # Pollers ODBC (0-1000)
+
+# ========================================
+# PARÂMETROS INVÁLIDOS PARA PROXY
+# ========================================
+# ATENÇÃO: Estes causam ERRO no Zabbix Proxy!
+
+StartHistoryPollers       # ❌ ERRO: "unknown parameter"
+StartLLDProcessors        # ❌ ERRO: "unknown parameter"  
+StartTaskManager          # ❌ ERRO: "unknown parameter"
+StartAlertManagers        # ❌ ERRO: "unknown parameter"
+StartAvailabilityReportWriters # ❌ ERRO: "unknown parameter"
+StartSNMPTrappers         # ❌ ERRO: "unknown parameter"
+StartAlerters             # ❌ ERRO: exclusivo do server
+StartTimers               # ❌ ERRO: exclusivo do server
+StartEscalators           # ❌ ERRO: exclusivo do server
+StartConnectors           # ❌ ERRO: exclusivo do server
+StartProxyPollers         # ❌ ERRO: exclusivo do server
+HousekeepingFrequency     # ❌ ERRO: exclusivo do server
+BufferSize                # ❌ ERRO: parâmetro de agent, não proxy
+BufferSend                # ❌ ERRO: parâmetro de agent, não proxy
+
+# ========================================
+# CONFIGURAÇÕES RECOMENDADAS POR CENÁRIO
+# ========================================
+
+## PROXY PEQUENO (< 1000 itens)
+CacheSize=128M
+HistoryCacheSize=64M
+StartPollers=10
+StartPreprocessors=2
+
+## PROXY MÉDIO (1000-10000 itens)
+CacheSize=512M
+HistoryCacheSize=256M
+StartPollers=50
+StartPreprocessors=5
+
+## PROXY GRANDE (10000-50000 itens)
+CacheSize=2G
+HistoryCacheSize=1G
+StartPollers=100
+StartPreprocessors=10
+
+## PROXY MUITO GRANDE (50000+ itens)
+CacheSize=4G
+HistoryCacheSize=2G
+StartPollers=200
+StartPreprocessors=20
+
+# ========================================
+# CONFIGURAÇÕES DE BUFFER ZABBIX 7.0
+# ========================================
+
+## MODO DISK (Padrão instalações antigas)
+ProxyBufferMode=disk
+ProxyLocalBuffer=0
+ProxyOfflineBuffer=1
+
+## MODO HYBRID (Recomendado para Zabbix 7.0)
+ProxyBufferMode=hybrid
+ProxyMemoryBufferSize=512M
+ProxyMemoryBufferAge=5
+ProxyLocalBuffer=0
+
+## MODO MEMORY (Alto desempenho, sem proteção)
+ProxyBufferMode=memory
+ProxyMemoryBufferSize=1G
+ProxyMemoryBufferAge=3
+ProxyLocalBuffer=0
+
+# ========================================
+# MONITORAMENTO INTERNO RECOMENDADO
+# ========================================
+
+## Para PROXY - Itens internos importantes:
+zabbix[proxy,config,cache,pused]          # Uso cache configuração
+zabbix[proxy,history,cache,pused]         # Uso cache histórico
+zabbix[proxy,buffer,pused]                # Uso buffer dados
+zabbix[proxy,status]                      # Status conexão server
+zabbix[proxy,buffer_mode]                 # Modo do buffer atual
+
+## Para SERVER - Itens internos importantes:
+zabbix[host,config,cache,pused]           # Uso cache configuração
+zabbix[history,cache,pused]               # Uso cache histórico
+zabbix[index,cache,pused]                 # Uso cache índice
+zabbix[queue]                             # Fila de itens pendentes
+zabbix[status]                            # Status geral do server
+
+# ========================================
+# TROUBLESHOOTING COMUM
+# ========================================
+
+## ERROS DE CONFIGURAÇÃO PROXY:
+"unknown parameter 'StartHistoryPollers'"  → Remover parâmetro (exclusivo server)
+"unknown parameter 'BufferSize'"           → Usar ProxyMemoryBufferSize
+"cannot set configuration cache size"      → Verificar memória disponível
+"proxy buffer mode hybrid conflicts"       → Configurar ProxyMemoryBufferSize
+
+## PROBLEMAS DE PERFORMANCE PROXY:
+Cache utilization > 75%                    → Aumentar CacheSize
+Proxy buffer > 90%                         → Aumentar ProxyMemoryBufferSize
+Unreachable pollers > 75%                  → Aumentar StartPollers
+Queue growing constantly                    → Aumentar StartPreprocessors
+
+## CONFIGURAÇÕES DE NETWORK:
+StartTrappers                              → Para dados ativos de agentes
+StartPollers                               → Para coleta passiva SNMP/Agent
+StartPingers                               → Para ICMP ping
+StartHTTPPollers                           → Para web scenarios
+StartIPMIPollers                           → Para IPMI monitoring
+
+# ========================================
+# COMANDOS ÚTEIS PARA DIAGNÓSTICO
+# ========================================
+
+## Verificar configuração:
+zabbix_proxy -c /etc/zabbix/zabbix_proxy.conf -t
+
+## Ver estatísticas internas:
+zabbix_get -s proxy_ip -k "zabbix[proxy,status]"
+zabbix_get -s proxy_ip -k "zabbix[proxy,config,cache,pused]"
+
+## Monitorar logs:
+tail -f /var/log/zabbix/zabbix_proxy.log
+
+## Verificar conexão com server:
+telnet server_ip 10051
+
+# ========================================
+# RESUMO FINAL
+# ========================================
+
+✅ PROXY: Foco em coleta e cache de dados
+❌ PROXY: Não processa triggers/alertas/web
+
+✅ SERVER: Processamento completo de monitoramento  
+❌ SERVER: Não coleta dados diretamente (usa proxies/agents)
+
+🔧 REGRA DE OURO:
+- Se é para COLETAR dados → Configure no PROXY
+- Se é para PROCESSAR dados → Configure no SERVER
+- Sempre teste configuração antes de aplicar em produção!
+
+# ========================================
+# PARA APLICAR MUDANÇAS NO SEU PROJETO
+# ========================================
+
+1. Editar Dockerfile.proxy removendo parâmetros inválidos
+2. Usar apenas parâmetros válidos para proxy
+3. Testar configuração: docker-compose build --no-cache
+4. Aplicar: docker-compose up -d
+5. Monitorar logs para verificar sucesso
