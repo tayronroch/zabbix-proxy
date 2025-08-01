@@ -253,7 +253,7 @@ RUN echo "# Configuração básica" > /etc/zabbix/zabbix_proxy.conf && \
     echo "HistoryIndexCacheSize=512M" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "# Processos otimizados para alta carga - Zabbix 7.0 LTS" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "StartPollers=600" >> /etc/zabbix/zabbix_proxy.conf && \\
+    echo "StartPollers=600" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "StartPollersUnreachable=50" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "StartIPMIPollers=200" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "StartDiscoverers=300" >> /etc/zabbix/zabbix_proxy.conf && \
