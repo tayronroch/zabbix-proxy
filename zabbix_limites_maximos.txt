@@ -220,64 +220,73 @@ LogFileCount
     Descrição: Número de arquivos de log para rotação
 
 # ========================================
-# PARÂMETROS ESPECÍFICOS DO ZABBIX 7.0 LTS
+# PARÂMETROS VÁLIDOS PARA ZABBIX PROXY 7.0 LTS
 # ========================================
-
-StartTaskManager
-    Faixa: 0 - 1
-    Padrão: 1
-    Atual no projeto: 1
-    Status: ✅ DENTRO DO LIMITE
-    Descrição: Gerenciador de tarefas (Novo no 7.0)
-
-StartAlertManagers
-    Faixa: 0 - 100
-    Padrão: 3
-    Atual no projeto: 3
-    Status: ✅ DENTRO DO LIMITE (3 ≤ 100)
-    Descrição: Gerenciadores de alerta (Novo no 7.0)
-
-StartAvailabilityReportWriters
-    Faixa: 0 - 100
-    Padrão: 1
-    Atual no projeto: 1
-    Status: ✅ DENTRO DO LIMITE (1 ≤ 100)
-    Descrição: Escritores de relatório de disponibilidade (Novo no 7.0)
+# IMPORTANTE: Alguns parâmetros são EXCLUSIVOS do Zabbix SERVER
 
 StartODBCPollers
     Faixa: 0 - 1000
     Padrão: 1
     Atual no projeto: 1
     Status: ✅ DENTRO DO LIMITE (1 ≤ 1000)
-    Descrição: Pollers ODBC (Novo no 7.0)
-
-StartSNMPTrappers
-    Faixa: 0 - 1000
-    Padrão: 0
-    Atual no projeto: 0
-    Status: ✅ DENTRO DO LIMITE
-    Descrição: Processadores de SNMP Trap (Novo no 7.0)
+    Descrição: Pollers ODBC
 
 StartVMwareCollectors
     Faixa: 0 - 250
     Padrão: 0
     Atual no projeto: 0
     Status: ✅ DENTRO DO LIMITE
-    Descrição: Coletores VMware (Novo no 7.0)
+    Descrição: Coletores VMware
+
+StartPingers
+    Faixa: 0 - 1000
+    Padrão: 1
+    Atual no projeto: 30
+    Status: ✅ DENTRO DO LIMITE (30 ≤ 1000)
+    Descrição: Processos de ping/ICMP
 
 VMwareCacheSize
     Faixa: 256K - 2G
     Padrão: 8M
-    Atual no projeto: 8M
-    Status: ✅ DENTRO DO LIMITE (8M < 2G)
-    Descrição: Cache VMware (Novo no 7.0)
+    Atual no projeto: Não configurado
+    Status: ✅ USANDO PADRÃO
+    Descrição: Cache VMware
 
 VMwareFrequency
     Faixa: 10 - 86400 segundos
     Padrão: 60 segundos
-    Atual no projeto: 60 segundos
-    Status: ✅ DENTRO DO LIMITE (60 ≤ 86400)
-    Descrição: Frequência de coleta VMware (Novo no 7.0)
+    Atual no projeto: Não configurado
+    Status: ✅ USANDO PADRÃO
+    Descrição: Frequência de coleta VMware
+
+# ========================================
+# PARÂMETROS INVÁLIDOS PARA PROXY (SOMENTE SERVER)
+# ========================================
+# ATENÇÃO: Estes parâmetros causam erro no Zabbix Proxy!
+
+StartHistoryPollers
+    Status: ❌ INVÁLIDO PARA PROXY
+    Descrição: Disponível apenas no Zabbix Server
+
+StartLLDProcessors
+    Status: ❌ INVÁLIDO PARA PROXY
+    Descrição: Disponível apenas no Zabbix Server
+
+StartTaskManager
+    Status: ❌ INVÁLIDO PARA PROXY
+    Descrição: Disponível apenas no Zabbix Server
+
+StartAlertManagers
+    Status: ❌ INVÁLIDO PARA PROXY
+    Descrição: Disponível apenas no Zabbix Server
+
+StartAvailabilityReportWriters
+    Status: ❌ INVÁLIDO PARA PROXY
+    Descrição: Disponível apenas no Zabbix Server
+
+StartSNMPTrappers
+    Status: ❌ INVÁLIDO PARA PROXY
+    Descrição: Disponível apenas no Zabbix Server
 
 # ========================================
 # RESUMO DO STATUS ATUAL

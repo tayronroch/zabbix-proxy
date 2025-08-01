@@ -259,16 +259,11 @@ RUN echo "# Configuração básica" > /etc/zabbix/zabbix_proxy.conf && \
     echo "StartHTTPPollers=200" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "StartTrappers=160" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "# Novos processos Zabbix 7.0 LTS para alta carga" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "StartHistoryPollers=10" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "StartLLDProcessors=5" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "StartTaskManager=1" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "StartAlertManagers=3" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "# Processos adicionais válidos para Zabbix Proxy 7.0 LTS" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "StartPreprocessors=3" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "StartAvailabilityReportWriters=1" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "StartODBCPollers=1" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "StartSNMPTrappers=0" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "StartVMwareCollectors=0" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "StartPingers=30" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "# Configurações de timeout otimizadas" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "Timeout=30" >> /etc/zabbix/zabbix_proxy.conf && \
