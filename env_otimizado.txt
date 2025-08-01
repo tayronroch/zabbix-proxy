@@ -17,7 +17,7 @@ ZBX_TIMEOUT=30
 # Limites de memoria (ajustar conforme disponibilidade)
 CONTAINER_MEMORY_LIMIT=12G
 CONTAINER_MEMORY_RESERVATION=6G
-CONTAINER_CPU_LIMIT=4.0
+CONTAINER_CPU_LIMIT=8.0
 
 # ========================================
 # CONFIGURACOES DE REDE
@@ -31,9 +31,9 @@ DNS_SECONDARY=8.8.4.4
 # IMPORTANTE: No Zabbix 7.0, cache é configurado diretamente no zabbix_proxy.conf
 # Estas variaveis sao para referencia - as configuracoes reais estao no Dockerfile
 # Cache principal - aumentar para alta carga
-# CacheSize=2G
-# HistoryCacheSize=1G
-# HistoryIndexCacheSize=256M
+# CacheSize=4G
+# HistoryCacheSize=2G
+# HistoryIndexCacheSize=512M
 
 # ========================================
 # CONFIGURACOES DE PROCESSOS (Zabbix 7.0 LTS)
@@ -166,8 +166,8 @@ ZBX_TIMEOUT=20
 #    a imagem, ou monte o arquivo zabbix_proxy.conf como volume
 #
 # 4. As configuracoes de cache e processos estao definidas no Dockerfile.proxy:
-#    - CacheSize=2G
-#    - HistoryCacheSize=1G
+#    - CacheSize=4G
+#    - HistoryCacheSize=2G
 #    - StartPollers=200
 #    - StartHistoryPollers=10
 #    - StartLLDProcessors=5

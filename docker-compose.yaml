@@ -53,7 +53,7 @@ services:
       resources:
         limits:
           memory: ${CONTAINER_MEMORY_LIMIT:-8G}
-          cpus: ${CONTAINER_CPU_LIMIT:-3.5}
+          cpus: ${CONTAINER_CPU_LIMIT:-8.0}
         reservations:
           memory: ${CONTAINER_MEMORY_RESERVATION:-4G}
     

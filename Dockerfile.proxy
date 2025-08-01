@@ -248,16 +248,16 @@ RUN echo "# Configuração básica" > /etc/zabbix/zabbix_proxy.conf && \
     echo "Server=45.161.89.183" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "# Configurações de cache otimizadas para alta carga - Zabbix 7.0 LTS" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "CacheSize=2G" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "HistoryCacheSize=1G" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "HistoryIndexCacheSize=256M" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "CacheSize=4G" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "HistoryCacheSize=2G" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "HistoryIndexCacheSize=512M" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "# Processos otimizados para alta carga - Zabbix 7.0 LTS" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "StartPollers=200" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "StartIPMIPollers=20" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "StartDiscoverers=30" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "StartHTTPPollers=20" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "StartTrappers=60" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "StartPollers=600" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "StartIPMIPollers=200" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "StartDiscoverers=300" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "StartHTTPPollers=200" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "StartTrappers=160" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "# Novos processos Zabbix 7.0 LTS para alta carga" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "StartHistoryPollers=10" >> /etc/zabbix/zabbix_proxy.conf && \
@@ -271,7 +271,7 @@ RUN echo "# Configuração básica" > /etc/zabbix/zabbix_proxy.conf && \
     echo "StartVMwareCollectors=0" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "# Configurações de timeout otimizadas" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "Timeout=20" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "Timeout=30" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "UnreachableDelay=30" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "UnavailableDelay=180" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "" >> /etc/zabbix/zabbix_proxy.conf && \
