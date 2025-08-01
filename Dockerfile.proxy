@@ -236,7 +236,7 @@ RUN echo '#!/bin/bash' > /usr/local/bin/start-zabbix-proxy.sh && \
     echo 'done' >> /usr/local/bin/start-zabbix-proxy.sh && \
     chmod +x /usr/local/bin/start-zabbix-proxy.sh
 
-# Criar arquivo de configuração otimizado para alta carga
+# Criar arquivo de configuração otimizado para alta carga - Zabbix 7.0 LTS
 RUN echo "# Configuração básica" > /etc/zabbix/zabbix_proxy.conf && \
     echo "Hostname=corewise-proxy" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "LogFile=/var/log/zabbix/zabbix_proxy.log" >> /etc/zabbix/zabbix_proxy.conf && \
@@ -247,22 +247,42 @@ RUN echo "# Configuração básica" > /etc/zabbix/zabbix_proxy.conf && \
     echo "ExternalScripts=/usr/lib/zabbix/externalscripts" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "Server=45.161.89.183" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "# Configurações de cache para Zabbix 7.0 LTS" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "CacheSize=1G" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "HistoryCacheSize=512M" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "HistoryIndexCacheSize=128M" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "# Configurações de cache otimizadas para alta carga - Zabbix 7.0 LTS" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "CacheSize=2G" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "HistoryCacheSize=1G" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "HistoryIndexCacheSize=256M" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "# Processos otimizados para alta carga" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "StartPollers=120" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "StartIPMIPollers=10" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "StartDiscoverers=20" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "StartHTTPPollers=10" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "StartTrappers=40" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "# Processos otimizados para alta carga - Zabbix 7.0 LTS" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "StartPollers=200" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "StartIPMIPollers=20" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "StartDiscoverers=30" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "StartHTTPPollers=20" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "StartTrappers=60" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "# Configurações de timeout" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "Timeout=30" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "UnreachableDelay=60" >> /etc/zabbix/zabbix_proxy.conf && \
-    echo "UnavailableDelay=300" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "# Novos processos Zabbix 7.0 LTS para alta carga" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "StartHistoryPollers=10" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "StartLLDProcessors=5" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "StartTaskManager=1" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "StartAlertManagers=3" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "StartPreprocessors=3" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "StartAvailabilityReportWriters=1" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "StartODBCPollers=1" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "StartSNMPTrappers=0" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "StartVMwareCollectors=0" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "# Configurações de timeout otimizadas" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "Timeout=20" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "UnreachableDelay=30" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "UnavailableDelay=180" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "# Configurações de buffer otimizadas" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "BufferSize=10000" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "BufferSend=1000" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "# Configurações de log otimizadas" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "LogLevel=3" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "LogFileSize=100M" >> /etc/zabbix/zabbix_proxy.conf && \
+    echo "LogFileCount=10" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "# Configurações de fping" >> /etc/zabbix/zabbix_proxy.conf && \
     echo "FpingLocation=/usr/bin/fping" >> /etc/zabbix/zabbix_proxy.conf && \

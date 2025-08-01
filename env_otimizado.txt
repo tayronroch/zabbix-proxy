@@ -1,0 +1,178 @@
+# ========================================
+# ZABBIX PROXY 7.0 LTS - CONFIGURACAO PARA ALTA CARGA
+# Otimizado para 15k+ itens e 261 hosts
+# ========================================
+
+# ========================================
+# CONFIGURACOES BASICAS (Zabbix 7.0 LTS)
+# ========================================
+ZBX_HOSTNAME=corewise-proxy
+ZBX_SERVER_HOST=45.161.89.183
+ZBX_SERVER_PORT=10051
+ZBX_TIMEOUT=30
+
+# ========================================
+# CONFIGURACOES DE RECURSOS DO CONTAINER
+# ========================================
+# Limites de memoria (ajustar conforme disponibilidade)
+CONTAINER_MEMORY_LIMIT=12G
+CONTAINER_MEMORY_RESERVATION=6G
+CONTAINER_CPU_LIMIT=4.0
+
+# ========================================
+# CONFIGURACOES DE REDE
+# ========================================
+DNS_PRIMARY=8.8.8.8
+DNS_SECONDARY=8.8.4.4
+
+# ========================================
+# CONFIGURACOES DE CACHE (Zabbix 7.0 LTS)
+# ========================================
+# IMPORTANTE: No Zabbix 7.0, cache é configurado diretamente no zabbix_proxy.conf
+# Estas variaveis sao para referencia - as configuracoes reais estao no Dockerfile
+# Cache principal - aumentar para alta carga
+# CacheSize=2G
+# HistoryCacheSize=1G
+# HistoryIndexCacheSize=256M
+
+# ========================================
+# CONFIGURACOES DE PROCESSOS (Zabbix 7.0 LTS)
+# ========================================
+# IMPORTANTE: No Zabbix 7.0, processos sao configurados diretamente no zabbix_proxy.conf
+# Estas variaveis sao para referencia - as configuracoes reais estao no Dockerfile
+# Pollers - aumentar para lidar com mais itens
+# StartPollers=200
+# StartIPMIPollers=20
+# StartDiscoverers=30
+# StartHTTPPollers=20
+# StartTrappers=60
+
+# ========================================
+# CONFIGURACOES DE TIMEOUT (Zabbix 7.0 LTS)
+# ========================================
+# Timeouts mais agressivos para alta carga
+ZBX_TIMEOUT=20
+# UnreachableDelay=30
+# UnavailableDelay=180
+
+# ========================================
+# CONFIGURACOES DE BANCO DE DADOS (Zabbix 7.0 LTS)
+# ========================================
+# Otimizacoes para SQLite em alta carga
+# DB_SQLITE3_TIMEOUT=60
+# DB_SQLITE3_BUSY_TIMEOUT=30000
+
+# ========================================
+# CONFIGURACOES DE LOG (Zabbix 7.0 LTS)
+# ========================================
+# LogLevel=3
+# LogFileSize=100M
+# LogFileCount=10
+
+# ========================================
+# CONFIGURACOES DE MONITORAMENTO (Zabbix 7.0 LTS)
+# ========================================
+# Intervalos de monitoramento otimizados
+# ConfigFrequency=300
+# DiscoveryFrequency=3600
+
+# ========================================
+# CONFIGURACOES DE SEGURANCA (Zabbix 7.0 LTS)
+# ========================================
+# Manter configuracoes de seguranca
+# Encryption=NONE
+# TLS_ACCEPT=unencrypted
+
+# ========================================
+# CONFIGURACOES DE PERFORMANCE ESPECIFICAS (Zabbix 7.0 LTS)
+# ========================================
+# Otimizacoes para alta carga baseadas em:
+# - 32.327 itens monitorados
+# - 261 hosts
+# - Problemas de poller unreachable > 75%
+
+# Aumentar buffers para alta carga
+# BufferSize=10000
+# BufferSend=1000
+
+# Configuracoes de heartbeat
+# HeartbeatFrequency=60
+
+# Configuracoes de housekeeping
+# HousekeepingFrequency=1
+
+# Configuracoes de proxy
+# ProxyMode=0
+# ProxyLocalBuffer=0
+# ProxyOfflineBuffer=1
+
+# ========================================
+# NOVAS CONFIGURACOES ZABBIX 7.0 LTS
+# ========================================
+# IMPORTANTE: Zabbix 7.0 introduziu novas configuracoes
+# Estas devem ser configuradas diretamente no zabbix_proxy.conf
+
+# Configuracoes de History Pollers (novo no Zabbix 7.0)
+# StartHistoryPollers=10
+
+# Configuracoes de LLD Processors (novo no Zabbix 7.0)
+# StartLLDProcessors=5
+
+# Configuracoes de Task Manager (novo no Zabbix 7.0)
+# StartTaskManager=1
+
+# Configuracoes de Alert Managers (novo no Zabbix 7.0)
+# StartAlertManagers=3
+
+# Configuracoes de Preprocessing Workers (novo no Zabbix 7.0)
+# StartPreprocessors=3
+
+# Configuracoes de Availability Report Writers (novo no Zabbix 7.0)
+# StartAvailabilityReportWriters=1
+
+# Configuracoes de ODBC Pollers (novo no Zabbix 7.0)
+# StartODBCPollers=1
+
+# Configuracoes de SNMP Trap Processors (novo no Zabbix 7.0)
+# StartSNMPTrappers=0
+
+# Configuracoes de VMware Collectors (novo no Zabbix 7.0)
+# StartVMwareCollectors=0
+
+# Configuracoes de VMware Cache (novo no Zabbix 7.0)
+# VMwareCacheSize=8M
+
+# Configuracoes de VMware Frequency (novo no Zabbix 7.0)
+# VMwareFrequency=60
+
+# ========================================
+# CONFIGURACOES DE DEBUG (OPCIONAL)
+# ========================================
+# Descomente para debug em producao
+# DebugLevel=4
+# LogSlowQueries=1
+
+# ========================================
+# INFORMACOES IMPORTANTES ZABBIX 7.0 LTS
+# ========================================
+# 
+# 1. Muitas configuracoes agora sao definidas diretamente no arquivo de configuracao
+#    zabbix_proxy.conf, nao como variaveis de ambiente
+#
+# 2. O Dockerfile.proxy ja contem as configuracoes otimizadas para alta carga
+#    diretamente no arquivo zabbix_proxy.conf
+#
+# 3. Para alterar configuracoes de performance, edite o Dockerfile.proxy e reconstrua
+#    a imagem, ou monte o arquivo zabbix_proxy.conf como volume
+#
+# 4. As configuracoes de cache e processos estao definidas no Dockerfile.proxy:
+#    - CacheSize=2G
+#    - HistoryCacheSize=1G
+#    - StartPollers=200
+#    - StartHistoryPollers=10
+#    - StartLLDProcessors=5
+#
+# 5. Para aplicar mudancas, reconstrua a imagem:
+#    docker-compose down
+#    docker-compose build --no-cache
+#    docker-compose up -d 
