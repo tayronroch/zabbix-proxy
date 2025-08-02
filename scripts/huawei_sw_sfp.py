@@ -31,7 +31,7 @@ def set_timeout(seconds=30):
     signal.signal(signal.SIGALRM, timeout_handler)
     signal.alarm(seconds)
 
-def ssh_command_with_cache(ip, port, user, password, command, debug=False):
+def ssh_command_with_cache(ip, port, user, password, command, debug=False, ssh_client=None):
     """Executa comando SSH com cache - OTIMIZADO PARA PRODUCAO"""
     global command_cache
     
@@ -43,14 +43,20 @@ def ssh_command_with_cache(ip, port, user, password, command, debug=False):
         return command_cache[cache_key]
     
     # Executa comando com timeouts otimizados
+    should_close = False
     try:
         if debug:
             print(f"DEBUG: Executando comando SSH: '{command}'")
-            
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(ip, port=port, username=user, password=password, 
-                   look_for_keys=False, timeout=5)
+        
+        # Usa cliente SSH existente ou cria novo
+        if ssh_client is None:
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh.connect(ip, port=port, username=user, password=password, 
+                       look_for_keys=False, timeout=5)
+            should_close = True
+        else:
+            ssh = ssh_client
         
         # Configura screen-length 0 e executa comando otimizado
         full_command = f"screen-length 0 temporary; {command}"
@@ -61,7 +67,8 @@ def ssh_command_with_cache(ip, port, user, password, command, debug=False):
         except UnicodeDecodeError:
             output = raw.decode("latin1")
         
-        ssh.close()
+        if should_close:
+            ssh.close()
         
         if debug:
             print(f"DEBUG: Comando executado. Output size: {len(output)} chars")
@@ -72,6 +79,11 @@ def ssh_command_with_cache(ip, port, user, password, command, debug=False):
         return output
         
     except Exception as e:
+        if should_close and ssh:
+            try:
+                ssh.close()
+            except:
+                pass
         if debug:
             print(f"DEBUG: Erro SSH: {str(e)}")
         raise Exception(f"Erro SSH em '{command}': {str(e)}")
@@ -293,9 +305,9 @@ def get_version_info(ip, port, user, password, debug=False):
     
     return version_data
 
-def get_interfaces(ip, port, user, password):
+def get_interfaces(ip, port, user, password, ssh_client=None):
     """Obtem interfaces com descrição"""
-    output = ssh_command_with_cache(ip, port, user, password, "display interface description")
+    output = ssh_command_with_cache(ip, port, user, password, "display interface description", ssh_client=ssh_client)
     
     interfaces = {}
     for line in output.splitlines():
@@ -310,9 +322,9 @@ def get_interfaces(ip, port, user, password):
     
     return interfaces
 
-def get_transceiver_info(ip, port, user, password, interface, debug=False):
+def get_transceiver_info(ip, port, user, password, interface, debug=False, ssh_client=None):
     """Obtem informações detalhadas do transceiver para uma interface específica"""
-    output = ssh_command_with_cache(ip, port, user, password, f"display transceiver verbose interface {interface}", debug)
+    output = ssh_command_with_cache(ip, port, user, password, f"display transceiver verbose interface {interface}", debug, ssh_client=ssh_client)
     
     transceiver_data = {}
     
@@ -521,6 +533,7 @@ def collect_original_optimized(ip, port, user, password, hostname, debug=False):
 
 def launch_discovery_and_collect(ip, port, user, password, hostname, debug=False):
     """Executa discovery e coleta OTIMIZADO - versao final para producao - SFP APENAS"""
+    ssh = None
     try:
         start_time = time.time()
         
@@ -530,8 +543,17 @@ def launch_discovery_and_collect(ip, port, user, password, hostname, debug=False
         # Limpa cache
         clear_cache()
         
+        # Cria uma única sessão SSH para todos os comandos
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(ip, port=port, username=user, password=password, 
+                   look_for_keys=False, timeout=5)
+        
+        if debug:
+            print("DEBUG: Conexão SSH estabelecida")
+        
         # Discovery SFP apenas - sem BGP, power, fans para otimizar
-        interfaces = get_interfaces(ip, port, user, password)
+        interfaces = get_interfaces(ip, port, user, password, ssh_client=ssh)
         
         # Discovery de interfaces SFP
         discovery_sfp = []
@@ -554,7 +576,7 @@ def launch_discovery_and_collect(ip, port, user, password, hostname, debug=False
         
         for ifname in interfaces.keys():
             try:
-                transceiver_data = get_transceiver_info(ip, port, user, password, ifname, debug)
+                transceiver_data = get_transceiver_info(ip, port, user, password, ifname, debug, ssh_client=ssh)
                 for metric, value in transceiver_data.items():
                     key = f"interface.sfp.{metric}[{ifname}]"
                     metrics_batch.append(f"{hostname} {key} {value}")
@@ -563,6 +585,11 @@ def launch_discovery_and_collect(ip, port, user, password, hostname, debug=False
                 if debug:
                     print(f"DEBUG: Erro coletando transceiver {ifname}: {str(ex)}")
                 error_count += 1
+        
+        # Fecha conexão SSH antes de enviar métricas
+        if ssh:
+            ssh.close()
+            ssh = None
         
         # Envia todas as métricas em lote
         if metrics_batch:
@@ -593,6 +620,12 @@ def launch_discovery_and_collect(ip, port, user, password, hostname, debug=False
             import traceback
             traceback.print_exc()
     finally:
+        # Garante que SSH seja fechado
+        if ssh:
+            try:
+                ssh.close()
+            except:
+                pass
         clear_cache()
 
 def collect(ip, port, user, password, hostname, debug=False):
