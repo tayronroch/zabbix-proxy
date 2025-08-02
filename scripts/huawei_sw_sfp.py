@@ -17,9 +17,19 @@ import subprocess
 import paramiko
 import json
 import time
+import signal
 
 # Cache simples para evitar comandos duplicados
 command_cache = {}
+
+def timeout_handler(signum, frame):
+    """Handler para timeout geral"""
+    raise TimeoutError("Script timeout - execução excedeu 30 segundos")
+
+def set_timeout(seconds=30):
+    """Define timeout geral para o script"""
+    signal.signal(signal.SIGALRM, timeout_handler)
+    signal.alarm(seconds)
 
 def ssh_command_with_cache(ip, port, user, password, command, debug=False):
     """Executa comando SSH com cache - OTIMIZADO PARA PRODUCAO"""
@@ -40,11 +50,11 @@ def ssh_command_with_cache(ip, port, user, password, command, debug=False):
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh.connect(ip, port=port, username=user, password=password, 
-                   look_for_keys=False, timeout=15)
+                   look_for_keys=False, timeout=5)
         
-        # Configura screen-length 0 e executa comando em uma única sessão
-        full_command = f"screen-length 0 temporary\n{command}"
-        _, stdout, _ = ssh.exec_command(full_command, timeout=30)
+        # Configura screen-length 0 e executa comando otimizado
+        full_command = f"screen-length 0 temporary; {command}"
+        _, stdout, _ = ssh.exec_command(full_command, timeout=8)
         raw = stdout.read()
         try:
             output = raw.decode("utf-8")
@@ -71,7 +81,7 @@ def clear_cache():
     global command_cache
     command_cache.clear()
 
-def send_zabbix_metric(hostname, key, value, timeout=5):
+def send_zabbix_metric(hostname, key, value, timeout=3):
     """Envia metrica individual para Zabbix - OTIMIZADO"""
     try:
         result = subprocess.run([
@@ -510,31 +520,72 @@ def collect_original_optimized(ip, port, user, password, hostname, debug=False):
     return success_count, error_count, elapsed
 
 def launch_discovery_and_collect(ip, port, user, password, hostname, debug=False):
-    """Executa discovery e coleta OTIMIZADO - versao final para producao"""
+    """Executa discovery e coleta OTIMIZADO - versao final para producao - SFP APENAS"""
     try:
         start_time = time.time()
         
         if debug:
-            print("DEBUG: Iniciando discovery e coleta...")
+            print("DEBUG: Iniciando discovery e coleta SFP...")
         
         # Limpa cache
         clear_cache()
         
-        # Executa discovery
-        launch_discovery_original(ip, port, user, password, hostname)
+        # Discovery SFP apenas - sem BGP, power, fans para otimizar
+        interfaces = get_interfaces(ip, port, user, password)
         
-        # Executa collect otimizado
-        success_count, error_count, _ = collect_original_optimized(ip, port, user, password, hostname, debug)
+        # Discovery de interfaces SFP
+        discovery_sfp = []
+        for ifname, ifalias in interfaces.items():
+            discovery_sfp.append({
+                "{#IFNAME}": ifname,
+                "{#IFALIAS}": ifalias
+            })
+        
+        # Envia discovery SFP
+        subprocess.run([
+            "zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "discovery_switch_sfp", 
+            "-o", json.dumps({"data": discovery_sfp})
+        ], capture_output=True, timeout=3)
+        
+        # Coleta SFP/Transceivers apenas - em lote para otimizar
+        success_count = 0
+        error_count = 0
+        metrics_batch = []
+        
+        for ifname in interfaces.keys():
+            try:
+                transceiver_data = get_transceiver_info(ip, port, user, password, ifname, debug)
+                for metric, value in transceiver_data.items():
+                    key = f"interface.sfp.{metric}[{ifname}]"
+                    metrics_batch.append(f"{hostname} {key} {value}")
+                    success_count += 1
+            except Exception as ex:
+                if debug:
+                    print(f"DEBUG: Erro coletando transceiver {ifname}: {str(ex)}")
+                error_count += 1
+        
+        # Envia todas as métricas em lote
+        if metrics_batch:
+            try:
+                batch_data = "\n".join(metrics_batch)
+                process = subprocess.run([
+                    "zabbix_sender", "-z", "127.0.0.1", "-i", "-"
+                ], input=batch_data, capture_output=True, timeout=5, text=True)
+                if process.returncode != 0:
+                    error_count += len(metrics_batch)
+                    success_count = 0
+            except Exception:
+                error_count += len(metrics_batch)
+                success_count = 0
         
         elapsed = time.time() - start_time
         
         # Feedback conciso de performance
-        total = success_count + error_count
         if error_count == 0:
-            print("SUCESSO: Discovery e coleta executados com sucesso!")
-            print(f"Metricas: {success_count} processadas em {elapsed:.1f}s")
+            print("SUCESSO: Discovery e coleta SFP executados com sucesso!")
+            print(f"Metricas SFP: {success_count} processadas em {elapsed:.1f}s")
         else:
-            print(f"PARCIAL: {error_count} falhas de {total} metricas total em {elapsed:.1f}s")
+            print(f"PARCIAL: {error_count} falhas de {success_count + error_count} metricas SFP em {elapsed:.1f}s")
         
     except Exception as e:
         print(f"ERRO: Falha na execucao do processo - {str(e)}", file=sys.stderr)
@@ -567,53 +618,64 @@ def collect(ip, port, user, password, hostname, debug=False):
         clear_cache()
 
 def main():
-    if len(sys.argv) < 2:
-        print("Uso: huawei_sw_sfp.py <launch_discovery|collect> <ip> <port> <user> <password> <hostname> [debug]", file=sys.stderr)
-        sys.exit(1)
+    # Define timeout geral de 30 segundos
+    set_timeout(30)
     
-    # Verifica se debug foi habilitado
-    debug = len(sys.argv) > 7 and sys.argv[7].lower() == "debug"
-    
-    mode = sys.argv[1]
-    if mode == "launch_discovery":
-        if len(sys.argv) < 7:
-            print("Uso: huawei_sw_sfp.py launch_discovery <ip> <port> <user> <password> <hostname> [debug]", file=sys.stderr)
-            sys.exit(1)
-        _, _, ip, port, user, password, hostname = sys.argv[:7]
-        
-        # Validação de parâmetros - verifica se macros foram substituídas
-        if port.startswith('{$') or user.startswith('{$') or password.startswith('{$'):
-            print("ERRO: Macros não foram substituídas pelo Zabbix. Verifique se {$SSH_PORT}, {$SSH_USER} e {$SSH_PASS} estão definidas no template.", file=sys.stderr)
+    try:
+        if len(sys.argv) < 2:
+            print("Uso: huawei_sw_sfp.py <launch_discovery|collect> <ip> <port> <user> <password> <hostname> [debug]", file=sys.stderr)
             sys.exit(1)
         
-        try:
-            port_int = int(port)
-        except ValueError:
-            print(f"ERRO: Porta SSH inválida: '{port}'. Deve ser um número.", file=sys.stderr)
-            sys.exit(1)
+        # Verifica se debug foi habilitado
+        debug = len(sys.argv) > 7 and sys.argv[7].lower() == "debug"
+        
+        mode = sys.argv[1]
+        if mode == "launch_discovery":
+            if len(sys.argv) < 7:
+                print("Uso: huawei_sw_sfp.py launch_discovery <ip> <port> <user> <password> <hostname> [debug]", file=sys.stderr)
+                sys.exit(1)
+            _, _, ip, port, user, password, hostname = sys.argv[:7]
             
-        launch_discovery_and_collect(ip, port_int, user, password, hostname, debug)
-    elif mode == "collect":
-        if len(sys.argv) < 7:
-            print("Uso: huawei_sw_sfp.py collect <ip> <port> <user> <password> <hostname> [debug]", file=sys.stderr)
-            sys.exit(1)
-        _, _, ip, port, user, password, hostname = sys.argv[:7]
-        
-        # Validação de parâmetros - verifica se macros foram substituídas
-        if port.startswith('{$') or user.startswith('{$') or password.startswith('{$'):
-            print("ERRO: Macros não foram substituídas pelo Zabbix. Verifique se {$SSH_PORT}, {$SSH_USER} e {$SSH_PASS} estão definidas no template.", file=sys.stderr)
-            sys.exit(1)
-        
-        try:
-            port_int = int(port)
-        except ValueError:
-            print(f"ERRO: Porta SSH inválida: '{port}'. Deve ser um número.", file=sys.stderr)
-            sys.exit(1)
+            # Validação de parâmetros - verifica se macros foram substituídas
+            if port.startswith('{$') or user.startswith('{$') or password.startswith('{$'):
+                print("ERRO: Macros não foram substituídas pelo Zabbix. Verifique se {$SSH_PORT}, {$SSH_USER} e {$SSH_PASS} estão definidas no template.", file=sys.stderr)
+                sys.exit(1)
             
-        collect(ip, port_int, user, password, hostname, debug)
-    else:
-        print("ERRO: Modo desconhecido. Use launch_discovery ou collect.", file=sys.stderr)
-        sys.exit(2)
+            try:
+                port_int = int(port)
+            except ValueError:
+                print(f"ERRO: Porta SSH inválida: '{port}'. Deve ser um número.", file=sys.stderr)
+                sys.exit(1)
+                
+            launch_discovery_and_collect(ip, port_int, user, password, hostname, debug)
+        elif mode == "collect":
+            if len(sys.argv) < 7:
+                print("Uso: huawei_sw_sfp.py collect <ip> <port> <user> <password> <hostname> [debug]", file=sys.stderr)
+                sys.exit(1)
+            _, _, ip, port, user, password, hostname = sys.argv[:7]
+            
+            # Validação de parâmetros - verifica se macros foram substituídas
+            if port.startswith('{$') or user.startswith('{$') or password.startswith('{$'):
+                print("ERRO: Macros não foram substituídas pelo Zabbix. Verifique se {$SSH_PORT}, {$SSH_USER} e {$SSH_PASS} estão definidas no template.", file=sys.stderr)
+                sys.exit(1)
+            
+            try:
+                port_int = int(port)
+            except ValueError:
+                print(f"ERRO: Porta SSH inválida: '{port}'. Deve ser um número.", file=sys.stderr)
+                sys.exit(1)
+                
+            collect(ip, port_int, user, password, hostname, debug)
+        else:
+            print("ERRO: Modo desconhecido. Use launch_discovery ou collect.", file=sys.stderr)
+            sys.exit(2)
+            
+    except TimeoutError as e:
+        print(f"ERRO: {str(e)}", file=sys.stderr)
+        sys.exit(3)
+    finally:
+        # Cancela o alarme
+        signal.alarm(0)
 
 if __name__ == "__main__":
     main()
