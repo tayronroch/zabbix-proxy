@@ -57,6 +57,18 @@ def ssh_command_with_cache(ip, port, user, password, command, debug=False, ssh_c
             should_close = True
         else:
             ssh = ssh_client
+            # Verifica se a sessão ainda está ativa
+            try:
+                ssh.exec_command("echo test", timeout=2)
+            except Exception:
+                # Sessão perdida, reconecta
+                if debug:
+                    print(f"DEBUG: Sessão SSH perdida, reconectando...")
+                ssh = paramiko.SSHClient()
+                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                ssh.connect(ip, port=port, username=user, password=password, 
+                           look_for_keys=False, timeout=5)
+                should_close = True
         
         # Executa comando com retry em caso de falha
         retries = 2
@@ -615,7 +627,6 @@ def collect_original_optimized(ip, port, user, password, hostname, debug=False):
 
 def launch_discovery_and_collect(ip, port, user, password, hostname, debug=False):
     """Executa discovery e coleta OTIMIZADO - versao final para producao - SFP APENAS"""
-    ssh = None
     try:
         start_time = time.time()
         
@@ -625,21 +636,10 @@ def launch_discovery_and_collect(ip, port, user, password, hostname, debug=False
         # Limpa cache
         clear_cache()
         
-        # Cria uma única sessão SSH para todos os comandos
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        if debug:
-            print(f"DEBUG: Conectando SSH em {ip}:{port}")
-        ssh.connect(ip, port=port, username=user, password=password, 
-                   look_for_keys=False, timeout=5)
-        
-        if debug:
-            print("DEBUG: Conexão SSH estabelecida")
-        
-        # Discovery SFP apenas - sem BGP, power, fans para otimizar
+        # Discovery SFP apenas - sem sessão SSH persistente
         if debug:
             print("DEBUG: Obtendo lista de interfaces...")
-        interfaces = get_interfaces(ip, port, user, password, ssh_client=ssh)
+        interfaces = get_interfaces(ip, port, user, password)
         if debug:
             print(f"DEBUG: Interfaces obtidas: {len(interfaces)}")
         
@@ -669,7 +669,7 @@ def launch_discovery_and_collect(ip, port, user, password, hostname, debug=False
             try:
                 if debug:
                     print(f"DEBUG: Coletando transceiver para {ifname}")
-                transceiver_data = get_transceiver_info(ip, port, user, password, ifname, debug, ssh_client=ssh)
+                transceiver_data = get_transceiver_info(ip, port, user, password, ifname, debug)
                 if debug:
                     print(f"DEBUG: Interface {ifname} - coletadas {len(transceiver_data)} métricas")
                 for metric, value in transceiver_data.items():
@@ -682,11 +682,6 @@ def launch_discovery_and_collect(ip, port, user, password, hostname, debug=False
                     import traceback
                     traceback.print_exc()
                 error_count += 1
-        
-        # Fecha conexão SSH antes de enviar métricas
-        if ssh:
-            ssh.close()
-            ssh = None
         
         # Envia todas as métricas em lote
         if metrics_batch:
@@ -717,12 +712,6 @@ def launch_discovery_and_collect(ip, port, user, password, hostname, debug=False
             import traceback
             traceback.print_exc()
     finally:
-        # Garante que SSH seja fechado
-        if ssh:
-            try:
-                ssh.close()
-            except:
-                pass
         clear_cache()
 
 def collect(ip, port, user, password, hostname, debug=False):
