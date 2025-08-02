@@ -15,8 +15,8 @@ def minimal_test(ip, port, user, password, hostname):
         
         print("Conectado! Executando comandos...")
         
-        # Comando único combinado
-        cmd = "screen-length 0 temporary\ndisplay interface description"
+        # Teste comandos corretos para este modelo de switch
+        cmd = "screen-length 0 temporary\ndisplay interface brief"
         stdin, stdout, stderr = ssh.exec_command(cmd, timeout=30)
         
         # Lê saída
