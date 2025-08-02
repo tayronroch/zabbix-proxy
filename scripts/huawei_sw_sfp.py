@@ -635,13 +635,24 @@ def launch_discovery_original(ip, port, user, password, hostname):
     bgp_peers_v4 = get_bgp_peers_ipv4(ip, port, user, password)
     bgp_peers_v6 = get_bgp_peers_ipv6(ip, port, user, password)
     
-    # Discovery de interfaces SFP
-    discovery_sfp = []
+    # Discovery de interfaces SFP - separa single e multi-lane
+    discovery_single = []
+    discovery_multi = []
+    
     for ifname, ifalias in interfaces.items():
-        discovery_sfp.append({
-            "{#IFNAME}": ifname,
-            "{#IFALIAS}": ifalias
-        })
+        if "100GE" in ifname:
+            # Multi-lane interface - adiciona com lane 0 por padrão
+            discovery_multi.append({
+                "{#IFNAME}": ifname,
+                "{#IFALIAS}": ifalias,
+                "{#GBIC_LANE}": "0"
+            })
+        else:
+            # Single-lane interface
+            discovery_single.append({
+                "{#IFNAME}": ifname,
+                "{#IFALIAS}": ifalias
+            })
     
     # Discovery de peers BGP IPv4
     discovery_bgp_v4 = []
@@ -657,11 +668,18 @@ def launch_discovery_original(ip, port, user, password, hostname):
             "{#BGP_PEER_V6}": peer_ip
         })
     
-    # Envia discoveries
-    subprocess.run([
-        "zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "discovery_switch_sfp", 
-        "-o", json.dumps({"data": discovery_sfp})
-    ], capture_output=True, timeout=8)
+    # Envia discoveries SFP
+    if discovery_single:
+        subprocess.run([
+            "zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "discovery_gbic_single", 
+            "-o", json.dumps({"data": discovery_single})
+        ], capture_output=True, timeout=8)
+        
+    if discovery_multi:
+        subprocess.run([
+            "zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "discovery_gbic_multi", 
+            "-o", json.dumps({"data": discovery_multi})
+        ], capture_output=True, timeout=8)
     
     subprocess.run([
         "zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "discovery_bgp_peers", 
@@ -854,19 +872,101 @@ display transceiver verbose"""
             if debug:
                 print(f"DEBUG: Interfaces encontradas: {len(interfaces)} - {list(interfaces.keys())}")
             
-            # Discovery de interfaces SFP
-            discovery_sfp = []
-            for ifname, ifalias in interfaces.items():
-                discovery_sfp.append({
-                    "{#IFNAME}": ifname,
-                    "{#IFALIAS}": ifalias
-                })
+            # Processa discovery baseado nos dados reais dos transceivers
+            discovery_single = []
+            discovery_multi = []
             
-            # Envia discovery SFP
-            subprocess.run([
-                "zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "discovery_switch_sfp", 
-                "-o", json.dumps({"data": discovery_sfp})
-            ], capture_output=True, timeout=3)
+            # Primeiro passo: coleta dados dos transceivers para discovery preciso
+            for ifname, ifalias in interfaces.items():
+                try:
+                    # Procura pela seção desta interface na saída do transceiver verbose
+                    interface_pattern = f"{ifname} transceiver information:"
+                    start_idx = full_output.find(interface_pattern)
+                    
+                    if start_idx != -1:
+                        # Encontra o fim da seção
+                        next_interface = full_output.find(" transceiver information:", start_idx + 1)
+                        if next_interface == -1:
+                            interface_output = full_output[start_idx:]
+                        else:
+                            interface_output = full_output[start_idx:next_interface]
+                        
+                        # Parse para identificar lanes
+                        transceiver_data = parse_transceiver_output(interface_output, ifname, debug)
+                        
+                        if "100GE" in ifname:
+                            # Multi-lane: descobre quantas lanes existem
+                            lanes_found = set()
+                            for metric in transceiver_data.keys():
+                                if "_lane_" in metric:
+                                    lane_num = metric.split("_")[-1]
+                                    lanes_found.add(lane_num)
+                            
+                            # Cria discovery para cada lane encontrada
+                            for lane in sorted(lanes_found):
+                                discovery_multi.append({
+                                    "{#IFNAME}": ifname,
+                                    "{#IFALIAS}": ifalias,
+                                    "{#GBIC_LANE}": lane
+                                })
+                        else:
+                            # Single-lane
+                            if transceiver_data:  # Só adiciona se encontrou dados
+                                discovery_single.append({
+                                    "{#IFNAME}": ifname,
+                                    "{#IFALIAS}": ifalias
+                                })
+                except Exception as ex:
+                    if debug:
+                        print(f"DEBUG: Erro no discovery de {ifname}: {str(ex)}")
+                    # Fallback: adiciona baseado no nome da interface
+                    if "100GE" in ifname:
+                        discovery_multi.append({
+                            "{#IFNAME}": ifname,
+                            "{#IFALIAS}": ifalias,
+                            "{#GBIC_LANE}": "0"
+                        })
+                    else:
+                        discovery_single.append({
+                            "{#IFNAME}": ifname,
+                            "{#IFALIAS}": ifalias
+                        })
+            
+            if debug:
+                print(f"DEBUG: Single-lane discovery: {len(discovery_single)} interfaces")
+                print(f"DEBUG: Multi-lane discovery: {len(discovery_multi)} interfaces")
+            
+            # Envia discovery para single-lane
+            if discovery_single:
+                discovery_result = subprocess.run([
+                    "zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "discovery_gbic_single", 
+                    "-o", json.dumps({"data": discovery_single})
+                ], capture_output=True, timeout=5, text=True)
+                
+                if debug:
+                    print(f"DEBUG: Single-lane discovery result: {discovery_result.returncode}")
+                    if discovery_result.stderr:
+                        print(f"DEBUG: Single-lane discovery stderr: {discovery_result.stderr}")
+            
+            # Envia discovery para multi-lane
+            if discovery_multi:
+                discovery_result = subprocess.run([
+                    "zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "discovery_gbic_multi", 
+                    "-o", json.dumps({"data": discovery_multi})
+                ], capture_output=True, timeout=5, text=True)
+            
+            if debug:
+                print(f"DEBUG: Discovery sender result: {discovery_result.returncode}")
+                print(f"DEBUG: Discovery sender stdout: {discovery_result.stdout}")
+                print(f"DEBUG: Discovery sender stderr: {discovery_result.stderr}")
+            
+            if discovery_result.returncode != 0:
+                print(f"AVISO: Discovery pode ter falhado: {discovery_result.stderr}")
+            
+            # Aguarda um pouco para o Zabbix processar o discovery
+            if debug:
+                print("DEBUG: Aguardando processamento do discovery...")
+            time.sleep(2)
             
             # Parse dados dos transceivers da saída combinada
             success_count = 0
@@ -894,10 +994,52 @@ display transceiver verbose"""
                         if debug:
                             print(f"DEBUG: Interface {ifname} - coletadas {len(transceiver_data)} métricas")
                         
-                        for metric, value in transceiver_data.items():
-                            key = f"interface.sfp.{metric}[{ifname}]"
-                            metrics_batch.append(f"{hostname} {key} {value}")
-                            success_count += 1
+                        # Envia métricas com as chaves corretas baseadas no tipo de interface
+                        if "100GE" in ifname:
+                            # Multi-lane interface - usa chaves ML com lane numbers
+                            for metric, value in transceiver_data.items():
+                                if metric.endswith("_lane_0") or metric.endswith("_lane_1") or metric.endswith("_lane_2") or metric.endswith("_lane_3"):
+                                    # Extrai número da lane
+                                    lane_num = metric.split("_")[-1]
+                                    base_metric = "_".join(metric.split("_")[:-2])
+                                    
+                                    if base_metric == "bias_current":
+                                        key = f"currML[{ifname},{lane_num}]"
+                                    elif base_metric == "tx_power":
+                                        key = f"txpowerML[{ifname},{lane_num}]"
+                                    elif base_metric == "rx_power":
+                                        key = f"rxpowerML[{ifname},{lane_num}]"
+                                    else:
+                                        continue
+                                        
+                                    metrics_batch.append(f"{hostname} {key} {value}")
+                                    success_count += 1
+                                elif metric == "temperature":
+                                    key = f"tempML[{ifname},0]"
+                                    metrics_batch.append(f"{hostname} {key} {value}")
+                                    success_count += 1
+                                elif metric == "voltage":
+                                    key = f"voltML[{ifname},0]"
+                                    metrics_batch.append(f"{hostname} {key} {value}")
+                                    success_count += 1
+                        else:
+                            # Single-lane interface - usa chaves simples
+                            for metric, value in transceiver_data.items():
+                                if metric == "bias_current":
+                                    key = f"curr[{ifname}]"
+                                elif metric == "tx_power":
+                                    key = f"txpower[{ifname}]"
+                                elif metric == "rx_power":
+                                    key = f"rxpower[{ifname}]"
+                                elif metric == "temperature":
+                                    key = f"temp[{ifname}]"
+                                elif metric == "voltage":
+                                    key = f"volt[{ifname}]"
+                                else:
+                                    continue
+                                    
+                                metrics_batch.append(f"{hostname} {key} {value}")
+                                success_count += 1
                     else:
                         if debug:
                             print(f"DEBUG: Seção transceiver não encontrada para {ifname}")
