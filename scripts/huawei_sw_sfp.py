@@ -31,8 +31,80 @@ def set_timeout(seconds=30):
     signal.signal(signal.SIGALRM, timeout_handler)
     signal.alarm(seconds)
 
+def ssh_execute_commands_batch(ip, port, user, password, commands, debug=False):
+    """Executa múltiplos comandos em uma única sessão SSH"""
+    ssh = None
+    results = {}
+    
+    try:
+        if debug:
+            print(f"DEBUG: Executando batch de {len(commands)} comandos SSH")
+        
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(ip, port=port, username=user, password=password, 
+                   look_for_keys=False, timeout=5)
+        
+        # Constrói comando completo com screen-length no início
+        full_command = "screen-length 0 temporary\n" + "\n".join(commands)
+        
+        if debug:
+            print(f"DEBUG: Executando comando combinado: {full_command[:200]}...")
+        
+        _, stdout, stderr = ssh.exec_command(full_command, timeout=25)
+        raw_output = stdout.read()
+        error_output = stderr.read().decode('utf-8', errors='ignore')
+        
+        if debug and error_output:
+            print(f"DEBUG: SSH stderr: {error_output[:200]}")
+        
+        try:
+            full_output = raw_output.decode("utf-8")
+        except UnicodeDecodeError:
+            full_output = raw_output.decode("latin1")
+        
+        ssh.close()
+        
+        if debug:
+            print(f"DEBUG: Batch executado. Output size: {len(full_output)} chars")
+        
+        # Parse da saída para separar cada comando
+        # Procura pelos prompts do equipamento para separar as saídas
+        command_outputs = []
+        current_output = ""
+        
+        for line in full_output.splitlines():
+            current_output += line + "\n"
+            # Detecta fim de comando pelo prompt (ex: <HOSTNAME>)
+            if line.strip().endswith(">") and ">" in line and len(line.strip()) < 100:
+                command_outputs.append(current_output)
+                current_output = ""
+        
+        # Se sobrou algo, adiciona
+        if current_output.strip():
+            command_outputs.append(current_output)
+        
+        # Mapeia saídas para comandos
+        for i, cmd in enumerate(commands):
+            if i < len(command_outputs):
+                results[cmd] = command_outputs[i]
+            else:
+                results[cmd] = ""
+        
+        return results
+        
+    except Exception as e:
+        if ssh:
+            try:
+                ssh.close()
+            except:
+                pass
+        if debug:
+            print(f"DEBUG: Erro SSH batch: {str(e)}")
+        raise Exception(f"Erro SSH em batch: {str(e)}")
+
 def ssh_command_with_cache(ip, port, user, password, command, debug=False, ssh_client=None):
-    """Executa comando SSH com cache - OTIMIZADO PARA PRODUCAO"""
+    """Executa comando SSH com cache - COMPATIBILIDADE"""
     global command_cache
     
     # Verifica cache primeiro
@@ -42,73 +114,34 @@ def ssh_command_with_cache(ip, port, user, password, command, debug=False, ssh_c
             print(f"DEBUG: Cache hit para '{command}'")
         return command_cache[cache_key]
     
-    # Executa comando com timeouts otimizados
-    should_close = False
+    # Executa comando individual (fallback)
+    ssh = None
     try:
         if debug:
-            print(f"DEBUG: Executando comando SSH: '{command}'")
+            print(f"DEBUG: Executando comando SSH individual: '{command}'")
         
-        # Usa cliente SSH existente ou cria novo
-        if ssh_client is None:
-            ssh = paramiko.SSHClient()
-            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(ip, port=port, username=user, password=password, 
-                       look_for_keys=False, timeout=5)
-            should_close = True
-        else:
-            ssh = ssh_client
-            # Verifica se a sessão ainda está ativa
-            try:
-                ssh.exec_command("echo test", timeout=2)
-            except Exception:
-                # Sessão perdida, reconecta
-                if debug:
-                    print(f"DEBUG: Sessão SSH perdida, reconectando...")
-                ssh = paramiko.SSHClient()
-                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-                ssh.connect(ip, port=port, username=user, password=password, 
-                           look_for_keys=False, timeout=5)
-                should_close = True
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(ip, port=port, username=user, password=password, 
+                   look_for_keys=False, timeout=5)
         
-        # Executa comando com retry em caso de falha
-        retries = 2
-        for attempt in range(retries):
-            try:
-                # Configura screen-length 0 e executa comando otimizado
-                full_command = f"screen-length 0 temporary; {command}"
-                _, stdout, stderr = ssh.exec_command(full_command, timeout=8)
-                raw = stdout.read()
-                error_output = stderr.read().decode('utf-8', errors='ignore')
-                
-                if debug and error_output:
-                    print(f"DEBUG: SSH stderr: {error_output[:200]}")
-                
-                break  # Sucesso, sai do loop
-            except Exception as retry_e:
-                if debug:
-                    print(f"DEBUG: Tentativa {attempt + 1} falhou: {str(retry_e)}")
-                if attempt == retries - 1:  # Última tentativa
-                    raise retry_e
-                time.sleep(0.5)  # Pequeno delay antes de tentar novamente
+        full_command = f"screen-length 0 temporary; {command}"
+        _, stdout, stderr = ssh.exec_command(full_command, timeout=8)
+        raw = stdout.read()
         
         try:
             output = raw.decode("utf-8")
         except UnicodeDecodeError:
             output = raw.decode("latin1")
         
-        if should_close:
-            ssh.close()
-        
-        if debug:
-            print(f"DEBUG: Comando executado. Output size: {len(output)} chars")
-            print(f"DEBUG: Primeiras 500 chars: {output[:500]}")
+        ssh.close()
         
         # Armazena no cache
         command_cache[cache_key] = output
         return output
         
     except Exception as e:
-        if should_close and ssh:
+        if ssh:
             try:
                 ssh.close()
             except:
@@ -336,7 +369,7 @@ def get_version_info(ip, port, user, password, debug=False):
 
 def get_interfaces(ip, port, user, password, ssh_client=None):
     """Obtem interfaces com descrição"""
-    output = ssh_command_with_cache(ip, port, user, password, "display interface description", ssh_client=ssh_client)
+    output = ssh_command_with_cache(ip, port, user, password, "display interface description")
     
     interfaces = {}
     for line in output.splitlines():
@@ -370,13 +403,13 @@ def get_transceiver_info(ip, port, user, password, interface, debug=False, ssh_c
     """Obtem informações detalhadas do transceiver para uma interface específica"""
     try:
         # Tenta primeiro comando verbose
-        output = ssh_command_with_cache(ip, port, user, password, f"display transceiver verbose interface {interface}", debug, ssh_client=ssh_client)
+        output = ssh_command_with_cache(ip, port, user, password, f"display transceiver verbose interface {interface}", debug)
     except Exception as e:
         if debug:
             print(f"DEBUG: Comando verbose falhou para {interface}: {str(e)}")
         try:
             # Fallback para comando simples
-            output = ssh_command_with_cache(ip, port, user, password, f"display transceiver interface {interface}", debug, ssh_client=ssh_client)
+            output = ssh_command_with_cache(ip, port, user, password, f"display transceiver interface {interface}", debug)
             if debug:
                 print(f"DEBUG: Usando comando simples para {interface}")
         except Exception as e2:
@@ -384,6 +417,113 @@ def get_transceiver_info(ip, port, user, password, interface, debug=False, ssh_c
                 print(f"DEBUG: Ambos comandos falharam para {interface}: {str(e2)}")
             return {}
     
+    transceiver_data = {}
+    
+    # Parse temperatura - formato: "  Temperature(°C)             :41.74"
+    temp_match = re.search(r"Temperature\([^)]+\)\s*:\s*([+-]?\d+\.?\d*)", output)
+    if temp_match:
+        transceiver_data["temperature"] = temp_match.group(1)
+        if debug:
+            print(f"DEBUG: {interface} temperature: {temp_match.group(1)}°C")
+    
+    # Parse voltagem - formato: "  Voltage(V)                    :3.30"
+    volt_match = re.search(r"Voltage\(V\)\s*:\s*(\d+\.?\d*)", output)
+    if volt_match:
+        transceiver_data["voltage"] = volt_match.group(1)
+        if debug:
+            print(f"DEBUG: {interface} voltage: {volt_match.group(1)}V")
+    
+    # Parse bias current - formato melhorado baseado na saída real
+    if "100GE" in interface:
+        # 100GE multi-lane: "  Bias Current(mA)              :66.68|69.75(Lane0|Lane1)"
+        bias_multiline_pattern = r"Bias Current\(mA\)\s*:\s*([\d\.\|]+)\(Lane\d+\|Lane\d+\)\s*\n?\s*([\d\.\|]+)\(Lane\d+\|Lane\d+\)?"
+        bias_match = re.search(bias_multiline_pattern, output, re.MULTILINE)
+        if bias_match:
+            # Primeira linha de lanes
+            bias_values1 = bias_match.group(1).split('|')
+            for i, value in enumerate(bias_values1):
+                transceiver_data[f"bias_current_lane_{i}"] = value.strip()
+            # Segunda linha de lanes se existir
+            if bias_match.group(2):
+                bias_values2 = bias_match.group(2).split('|')
+                for i, value in enumerate(bias_values2, start=len(bias_values1)):
+                    transceiver_data[f"bias_current_lane_{i}"] = value.strip()
+        else:
+            # Fallback para linha única
+            bias_match = re.search(r"Bias Current\(mA\)\s*:\s*([\d\.\|]+)", output)
+            if bias_match and '|' in bias_match.group(1):
+                bias_values = bias_match.group(1).split('|')
+                for i, value in enumerate(bias_values):
+                    transceiver_data[f"bias_current_lane_{i}"] = value.strip()
+    else:
+        # XGE simples: "  Bias Current(mA)              :7.23"
+        bias_match = re.search(r"Bias Current\(mA\)\s*:\s*(\d+\.?\d*)", output)
+        if bias_match:
+            transceiver_data["bias_current"] = bias_match.group(1)
+    
+    # Parse TX power - formato melhorado
+    if "100GE" in interface:
+        # 100GE multi-lane: "  TX Power(dBM)                 :1.37|1.48(Lane0|Lane1)"
+        tx_multiline_pattern = r"TX Power\(dBM\)\s*:\s*([\d\.\-\|]+)\(Lane\d+\|Lane\d+\)\s*\n?\s*([\d\.\-\|]+)\(Lane\d+\|Lane\d+\)?"
+        tx_match = re.search(tx_multiline_pattern, output, re.MULTILINE)
+        if tx_match:
+            # Primeira linha
+            tx_values1 = tx_match.group(1).split('|')
+            for i, value in enumerate(tx_values1):
+                transceiver_data[f"tx_power_lane_{i}"] = value.strip()
+            # Segunda linha se existir  
+            if tx_match.group(2):
+                tx_values2 = tx_match.group(2).split('|')
+                for i, value in enumerate(tx_values2, start=len(tx_values1)):
+                    transceiver_data[f"tx_power_lane_{i}"] = value.strip()
+        else:
+            # Fallback
+            tx_match = re.search(r"TX Power\(dBM\)\s*:\s*([\d\.\-\|]+)", output)
+            if tx_match and '|' in tx_match.group(1):
+                tx_values = tx_match.group(1).split('|')
+                for i, value in enumerate(tx_values):
+                    transceiver_data[f"tx_power_lane_{i}"] = value.strip()
+    else:
+        # XGE simples: "  TX Power(dBM)                 :-2.28"
+        tx_match = re.search(r"TX Power\(dBM\)\s*:\s*([+-]?\d+\.?\d*)", output)
+        if tx_match:
+            transceiver_data["tx_power"] = tx_match.group(1)
+    
+    # Parse RX power - formato melhorado
+    if "100GE" in interface:
+        # 100GE multi-lane: "  RX Power(dBM)                 :-0.50|-1.20(Lane0|Lane1)"
+        rx_multiline_pattern = r"RX Power\(dBM\)\s*:\s*([\d\.\-\|]+)\(Lane\d+\|Lane\d+\)\s*\n?\s*([\d\.\-\|]+)\(Lane\d+\|Lane\d+\)?"
+        rx_match = re.search(rx_multiline_pattern, output, re.MULTILINE)
+        if rx_match:
+            # Primeira linha
+            rx_values1 = rx_match.group(1).split('|')
+            for i, value in enumerate(rx_values1):
+                transceiver_data[f"rx_power_lane_{i}"] = value.strip()
+            # Segunda linha se existir
+            if rx_match.group(2):
+                rx_values2 = rx_match.group(2).split('|')
+                for i, value in enumerate(rx_values2, start=len(rx_values1)):
+                    transceiver_data[f"rx_power_lane_{i}"] = value.strip()
+        else:
+            # Fallback
+            rx_match = re.search(r"RX Power\(dBM\)\s*:\s*([\d\.\-\|]+)", output)
+            if rx_match and '|' in rx_match.group(1):
+                rx_values = rx_match.group(1).split('|')
+                for i, value in enumerate(rx_values):
+                    transceiver_data[f"rx_power_lane_{i}"] = value.strip()
+    else:
+        # XGE simples: "  RX Power(dBM)                 :-2.75"
+        rx_match = re.search(r"RX Power\(dBM\)\s*:\s*([+-]?\d+\.?\d*)", output)
+        if rx_match:
+            transceiver_data["rx_power"] = rx_match.group(1)
+    
+    if debug:
+        print(f"DEBUG: {interface} transceiver data: {len(transceiver_data)} metrics")
+    
+    return transceiver_data
+
+def parse_transceiver_output(output, interface, debug=False):
+    """Parse da saída do comando display transceiver verbose interface"""
     transceiver_data = {}
     
     # Parse temperatura - formato: "  Temperature(°C)             :41.74"
@@ -626,20 +766,54 @@ def collect_original_optimized(ip, port, user, password, hostname, debug=False):
     return success_count, error_count, elapsed
 
 def launch_discovery_and_collect(ip, port, user, password, hostname, debug=False):
-    """Executa discovery e coleta OTIMIZADO - versao final para producao - SFP APENAS"""
+    """Executa discovery e coleta OTIMIZADO - 2 SESSOES SSH COM GRUPOS DE COMANDOS"""
     try:
         start_time = time.time()
         
         if debug:
-            print("DEBUG: Iniciando discovery e coleta SFP...")
+            print("DEBUG: Iniciando discovery e coleta SFP com 2 grupos SSH...")
         
         # Limpa cache
         clear_cache()
         
-        # Discovery SFP apenas - sem sessão SSH persistente
+        # GRUPO 1: Comandos básicos do sistema
+        grupo1_commands = [
+            "display interface description"
+        ]
+        
         if debug:
-            print("DEBUG: Obtendo lista de interfaces...")
-        interfaces = get_interfaces(ip, port, user, password)
+            print("DEBUG: Executando Grupo 1 - comandos básicos...")
+        grupo1_results = ssh_execute_commands_batch(ip, port, user, password, grupo1_commands, debug)
+        
+        # Parse interfaces do Grupo 1
+        interfaces = {}
+        if "display interface description" in grupo1_results:
+            output = grupo1_results["display interface description"]
+            for line in output.splitlines():
+                line = line.strip()
+                # Ignora linhas de cabeçalho e informações
+                if line.startswith("PHY:") or line.startswith("*down:") or line.startswith("#down:"):
+                    continue
+                if line.startswith("(") or line.startswith("Interface"):
+                    continue
+                if not line:
+                    continue
+                    
+                # Parse das linhas de interface: Interface PHY Protocol Description
+                parts = line.split()
+                if len(parts) >= 3:
+                    ifname = parts[0]
+                    phy_status = parts[1] 
+                    proto_status = parts[2]
+                    # Descrição pode ter espaços, junta tudo depois da 3ª coluna
+                    ifalias = " ".join(parts[3:]) if len(parts) > 3 else ""
+                    
+                    # Inclui apenas interfaces físicas com SFP/transceivers
+                    if any(x in ifname for x in ["XGE", "100GE", "25GE", "40GE", "GigabitEthernet"]):
+                        # Só inclui interfaces que estão UP fisicamente (têm transceiver)
+                        if phy_status == "up":
+                            interfaces[ifname] = ifalias if ifalias else "No Description"
+        
         if debug:
             print(f"DEBUG: Interfaces obtidas: {len(interfaces)}")
         
@@ -657,31 +831,45 @@ def launch_discovery_and_collect(ip, port, user, password, hostname, debug=False
             "-o", json.dumps({"data": discovery_sfp})
         ], capture_output=True, timeout=3)
         
-        # Coleta SFP/Transceivers apenas - em lote para otimizar
-        success_count = 0
-        error_count = 0
-        metrics_batch = []
-        
-        if debug:
-            print(f"DEBUG: Encontradas {len(interfaces)} interfaces: {list(interfaces.keys())}")
-        
-        for ifname in interfaces.keys():
-            try:
-                if debug:
-                    print(f"DEBUG: Coletando transceiver para {ifname}")
-                transceiver_data = get_transceiver_info(ip, port, user, password, ifname, debug)
-                if debug:
-                    print(f"DEBUG: Interface {ifname} - coletadas {len(transceiver_data)} métricas")
-                for metric, value in transceiver_data.items():
-                    key = f"interface.sfp.{metric}[{ifname}]"
-                    metrics_batch.append(f"{hostname} {key} {value}")
-                    success_count += 1
-            except Exception as ex:
-                if debug:
-                    print(f"DEBUG: Erro coletando transceiver {ifname}: {str(ex)}")
-                    import traceback
-                    traceback.print_exc()
-                error_count += 1
+        # GRUPO 2: Comandos de transceiver em lote
+        if interfaces:
+            grupo2_commands = []
+            for ifname in interfaces.keys():
+                grupo2_commands.append(f"display transceiver verbose interface {ifname}")
+            
+            if debug:
+                print(f"DEBUG: Executando Grupo 2 - {len(grupo2_commands)} comandos transceiver...")
+            grupo2_results = ssh_execute_commands_batch(ip, port, user, password, grupo2_commands, debug)
+            
+            # Processa resultados dos transceivers
+            success_count = 0
+            error_count = 0
+            metrics_batch = []
+            
+            for ifname in interfaces.keys():
+                cmd = f"display transceiver verbose interface {ifname}"
+                if cmd in grupo2_results:
+                    try:
+                        output = grupo2_results[cmd]
+                        transceiver_data = parse_transceiver_output(output, ifname, debug)
+                        if debug:
+                            print(f"DEBUG: Interface {ifname} - coletadas {len(transceiver_data)} métricas")
+                        for metric, value in transceiver_data.items():
+                            key = f"interface.sfp.{metric}[{ifname}]"
+                            metrics_batch.append(f"{hostname} {key} {value}")
+                            success_count += 1
+                    except Exception as ex:
+                        if debug:
+                            print(f"DEBUG: Erro processando transceiver {ifname}: {str(ex)}")
+                        error_count += 1
+                else:
+                    if debug:
+                        print(f"DEBUG: Comando não encontrado nos resultados: {cmd}")
+                    error_count += 1
+        else:
+            success_count = 0
+            error_count = 0
+            metrics_batch = []
         
         # Envia todas as métricas em lote
         if metrics_batch:
