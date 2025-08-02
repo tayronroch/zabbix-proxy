@@ -766,124 +766,173 @@ def collect_original_optimized(ip, port, user, password, hostname, debug=False):
     return success_count, error_count, elapsed
 
 def launch_discovery_and_collect(ip, port, user, password, hostname, debug=False):
-    """Executa discovery e coleta OTIMIZADO - 2 SESSOES SSH COM GRUPOS DE COMANDOS"""
+    """Executa discovery e coleta SUPER SIMPLES - APENAS 3 COMANDOS"""
     try:
         start_time = time.time()
         
         if debug:
-            print("DEBUG: Iniciando discovery e coleta SFP com 2 grupos SSH...")
+            print("DEBUG: Iniciando coleta SFP simplificada...")
         
         # Limpa cache
         clear_cache()
         
-        # GRUPO 1: Comandos básicos do sistema
-        grupo1_commands = [
-            "display interface description"
+        # UMA ÚNICA SESSÃO SSH com apenas 3 comandos essenciais
+        commands = [
+            "display interface description",
+            "display transceiver verbose"
         ]
         
         if debug:
-            print("DEBUG: Executando Grupo 1 - comandos básicos...")
-        grupo1_results = ssh_execute_commands_batch(ip, port, user, password, grupo1_commands, debug)
+            print("DEBUG: Executando comandos SSH simplificados...")
         
-        # Parse interfaces do Grupo 1
-        interfaces = {}
-        if "display interface description" in grupo1_results:
-            output = grupo1_results["display interface description"]
-            for line in output.splitlines():
-                line = line.strip()
-                # Ignora linhas de cabeçalho e informações
-                if line.startswith("PHY:") or line.startswith("*down:") or line.startswith("#down:"):
-                    continue
-                if line.startswith("(") or line.startswith("Interface"):
-                    continue
-                if not line:
-                    continue
-                    
-                # Parse das linhas de interface: Interface PHY Protocol Description
-                parts = line.split()
-                if len(parts) >= 3:
-                    ifname = parts[0]
-                    phy_status = parts[1] 
-                    proto_status = parts[2]
-                    # Descrição pode ter espaços, junta tudo depois da 3ª coluna
-                    ifalias = " ".join(parts[3:]) if len(parts) > 3 else ""
-                    
-                    # Inclui apenas interfaces físicas com SFP/transceivers
-                    if any(x in ifname for x in ["XGE", "100GE", "25GE", "40GE", "GigabitEthernet"]):
-                        # Só inclui interfaces que estão UP fisicamente (têm transceiver)
-                        if phy_status == "up":
-                            interfaces[ifname] = ifalias if ifalias else "No Description"
-        
-        if debug:
-            print(f"DEBUG: Interfaces obtidas: {len(interfaces)}")
-        
-        # Discovery de interfaces SFP
-        discovery_sfp = []
-        for ifname, ifalias in interfaces.items():
-            discovery_sfp.append({
-                "{#IFNAME}": ifname,
-                "{#IFALIAS}": ifalias
-            })
-        
-        # Envia discovery SFP
-        subprocess.run([
-            "zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "discovery_switch_sfp", 
-            "-o", json.dumps({"data": discovery_sfp})
-        ], capture_output=True, timeout=3)
-        
-        # GRUPO 2: Comandos de transceiver em lote
-        if interfaces:
-            grupo2_commands = []
-            for ifname in interfaces.keys():
-                grupo2_commands.append(f"display transceiver verbose interface {ifname}")
+        # Executa tudo em uma única sessão
+        ssh = None
+        try:
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh.connect(ip, port=port, username=user, password=password, 
+                       look_for_keys=False, timeout=5)
+            
+            # Comando combinado exatamente como você pediu
+            full_command = """screen-length 0 temporary
+display interface description
+display transceiver verbose"""
             
             if debug:
-                print(f"DEBUG: Executando Grupo 2 - {len(grupo2_commands)} comandos transceiver...")
-            grupo2_results = ssh_execute_commands_batch(ip, port, user, password, grupo2_commands, debug)
+                print("DEBUG: Executando comando combinado...")
             
-            # Processa resultados dos transceivers
+            _, stdout, stderr = ssh.exec_command(full_command, timeout=20)
+            raw_output = stdout.read()
+            
+            try:
+                full_output = raw_output.decode("utf-8")
+            except UnicodeDecodeError:
+                full_output = raw_output.decode("latin1")
+            
+            ssh.close()
+            
+            if debug:
+                print(f"DEBUG: Comando executado. Output size: {len(full_output)} chars")
+                print(f"DEBUG: Primeiras 1000 chars: {full_output[:1000]}")
+            
+            # Parse interfaces da saída combinada
+            interfaces = {}
+            lines = full_output.splitlines()
+            
+            # Procura pela seção de interfaces (após display interface description)
+            interface_section = False
+            for line in lines:
+                line = line.strip()
+                
+                if "display interface description" in line:
+                    interface_section = True
+                    continue
+                elif "display transceiver verbose" in line:
+                    interface_section = False
+                    break
+                
+                if interface_section:
+                    # Ignora linhas de cabeçalho
+                    if line.startswith("PHY:") or line.startswith("*down:") or line.startswith("#down:"):
+                        continue
+                    if line.startswith("(") or line.startswith("Interface"):
+                        continue
+                    if not line or line.endswith(">"):
+                        continue
+                        
+                    # Parse das linhas de interface
+                    parts = line.split()
+                    if len(parts) >= 3:
+                        ifname = parts[0]
+                        phy_status = parts[1] 
+                        ifalias = " ".join(parts[3:]) if len(parts) > 3 else "No Description"
+                        
+                        # Inclui apenas interfaces físicas com SFP UP
+                        if any(x in ifname for x in ["XGE", "100GE", "25GE", "40GE"]) and phy_status == "up":
+                            interfaces[ifname] = ifalias
+            
+            if debug:
+                print(f"DEBUG: Interfaces encontradas: {len(interfaces)} - {list(interfaces.keys())}")
+            
+            # Discovery de interfaces SFP
+            discovery_sfp = []
+            for ifname, ifalias in interfaces.items():
+                discovery_sfp.append({
+                    "{#IFNAME}": ifname,
+                    "{#IFALIAS}": ifalias
+                })
+            
+            # Envia discovery SFP
+            subprocess.run([
+                "zabbix_sender", "-z", "127.0.0.1", "-s", hostname, "-k", "discovery_switch_sfp", 
+                "-o", json.dumps({"data": discovery_sfp})
+            ], capture_output=True, timeout=3)
+            
+            # Parse dados dos transceivers da saída combinada
             success_count = 0
             error_count = 0
             metrics_batch = []
             
+            # Processa cada interface encontrada
             for ifname in interfaces.keys():
-                cmd = f"display transceiver verbose interface {ifname}"
-                if cmd in grupo2_results:
-                    try:
-                        output = grupo2_results[cmd]
-                        transceiver_data = parse_transceiver_output(output, ifname, debug)
+                try:
+                    # Procura pela seção desta interface na saída do transceiver verbose
+                    interface_pattern = f"{ifname} transceiver information:"
+                    start_idx = full_output.find(interface_pattern)
+                    
+                    if start_idx != -1:
+                        # Encontra o fim da seção (próxima interface ou fim)
+                        next_interface = full_output.find(" transceiver information:", start_idx + 1)
+                        if next_interface == -1:
+                            interface_output = full_output[start_idx:]
+                        else:
+                            interface_output = full_output[start_idx:next_interface]
+                        
+                        # Parse dos dados SFP
+                        transceiver_data = parse_transceiver_output(interface_output, ifname, debug)
+                        
                         if debug:
                             print(f"DEBUG: Interface {ifname} - coletadas {len(transceiver_data)} métricas")
+                        
                         for metric, value in transceiver_data.items():
                             key = f"interface.sfp.{metric}[{ifname}]"
                             metrics_batch.append(f"{hostname} {key} {value}")
                             success_count += 1
-                    except Exception as ex:
+                    else:
                         if debug:
-                            print(f"DEBUG: Erro processando transceiver {ifname}: {str(ex)}")
+                            print(f"DEBUG: Seção transceiver não encontrada para {ifname}")
                         error_count += 1
-                else:
+                        
+                except Exception as ex:
                     if debug:
-                        print(f"DEBUG: Comando não encontrado nos resultados: {cmd}")
+                        print(f"DEBUG: Erro processando {ifname}: {str(ex)}")
                     error_count += 1
-        else:
-            success_count = 0
-            error_count = 0
-            metrics_batch = []
-        
-        # Envia todas as métricas em lote
-        if metrics_batch:
-            try:
-                batch_data = "\n".join(metrics_batch)
-                process = subprocess.run([
-                    "zabbix_sender", "-z", "127.0.0.1", "-i", "-"
-                ], input=batch_data, capture_output=True, timeout=5, text=True)
-                if process.returncode != 0:
+            
+            # Envia todas as métricas em lote
+            if metrics_batch:
+                try:
+                    batch_data = "\n".join(metrics_batch)
+                    process = subprocess.run([
+                        "zabbix_sender", "-z", "127.0.0.1", "-i", "-"
+                    ], input=batch_data, capture_output=True, timeout=5, text=True)
+                    if process.returncode != 0:
+                        if debug:
+                            print(f"DEBUG: Zabbix sender falhou: {process.stderr}")
+                        error_count += len(metrics_batch)
+                        success_count = 0
+                except Exception as e:
+                    if debug:
+                        print(f"DEBUG: Erro enviando métricas: {str(e)}")
                     error_count += len(metrics_batch)
                     success_count = 0
-            except Exception:
-                error_count += len(metrics_batch)
-                success_count = 0
+            
+        except Exception as ssh_error:
+            if ssh:
+                try:
+                    ssh.close()
+                except:
+                    pass
+            raise ssh_error
         
         elapsed = time.time() - start_time
         
