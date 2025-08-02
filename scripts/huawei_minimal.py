@@ -22,14 +22,23 @@ def minimal_test(ip, port, user, password, hostname):
         # Lê saída
         output = stdout.read().decode('utf-8', errors='ignore')
         print(f"Saída recebida: {len(output)} chars")
+        print("=== SAÍDA COMPLETA ===")
+        print(output)
+        print("=== FIM SAÍDA ===")
         
         # Procura interfaces
         interfaces = []
+        print("\n=== ANÁLISE LINHA POR LINHA ===")
         for line in output.splitlines():
-            if "XGE" in line or "100GE" in line:
-                parts = line.split()
-                if len(parts) >= 3 and parts[1] == "up":
-                    interfaces.append(parts[0])
+            line = line.strip()
+            if line:
+                print(f"Linha: '{line}'")
+                if "XGE" in line or "100GE" in line or "GigabitEthernet" in line:
+                    parts = line.split()
+                    print(f"  -> Interface encontrada: {parts}")
+                    if len(parts) >= 3 and parts[1] == "up":
+                        interfaces.append(parts[0])
+                        print(f"  -> Adicionada: {parts[0]}")
         
         print(f"Interfaces encontradas: {interfaces}")
         
