@@ -328,14 +328,29 @@ def get_interfaces(ip, port, user, password, ssh_client=None):
     
     interfaces = {}
     for line in output.splitlines():
-        # Match interface lines
-        m = re.match(r"(\S+)\s+\S+\s+\S+\s+(.*)", line.strip())
-        if m:
-            ifname = m.group(1)
-            ifalias = m.group(2).strip()
-            # Inclui interfaces 10GE, 25GE, 40GE, 100GE, etc
-            if any(x in ifname for x in ["GE", "Ethernet"]) and ifalias:
-                interfaces[ifname] = ifalias
+        line = line.strip()
+        # Ignora linhas de cabeçalho e informações
+        if line.startswith("PHY:") or line.startswith("*down:") or line.startswith("#down:"):
+            continue
+        if line.startswith("(") or line.startswith("Interface"):
+            continue
+        if not line:
+            continue
+            
+        # Parse das linhas de interface: Interface PHY Protocol Description
+        parts = line.split()
+        if len(parts) >= 3:
+            ifname = parts[0]
+            phy_status = parts[1] 
+            proto_status = parts[2]
+            # Descrição pode ter espaços, junta tudo depois da 3ª coluna
+            ifalias = " ".join(parts[3:]) if len(parts) > 3 else ""
+            
+            # Inclui apenas interfaces físicas com SFP/transceivers
+            if any(x in ifname for x in ["XGE", "100GE", "25GE", "40GE", "GigabitEthernet"]):
+                # Só inclui interfaces que estão UP fisicamente (têm transceiver)
+                if phy_status == "up":
+                    interfaces[ifname] = ifalias if ifalias else "No Description"
     
     return interfaces
 
@@ -359,64 +374,100 @@ def get_transceiver_info(ip, port, user, password, interface, debug=False, ssh_c
     
     transceiver_data = {}
     
-    # Parse temperatura - formato: "Temperature(°C)             :41.00"
-    temp_match = re.search(r"Temperature\(.*?\)\s*:\s*([+-]?\d+\.?\d*)", output)
+    # Parse temperatura - formato: "  Temperature(°C)             :41.74"
+    temp_match = re.search(r"Temperature\([^)]+\)\s*:\s*([+-]?\d+\.?\d*)", output)
     if temp_match:
         transceiver_data["temperature"] = temp_match.group(1)
         if debug:
             print(f"DEBUG: {interface} temperature: {temp_match.group(1)}°C")
     
-    # Parse voltagem - formato: "Voltage(V)                    :3.30"
+    # Parse voltagem - formato: "  Voltage(V)                    :3.30"
     volt_match = re.search(r"Voltage\(V\)\s*:\s*(\d+\.?\d*)", output)
     if volt_match:
         transceiver_data["voltage"] = volt_match.group(1)
         if debug:
             print(f"DEBUG: {interface} voltage: {volt_match.group(1)}V")
     
-    # Parse bias current - pode ser simples ou multi-lane
+    # Parse bias current - formato melhorado baseado na saída real
     if "100GE" in interface:
-        # 100GE com múltiplas lanes: "Bias Current(mA)              :66.69|69.77(Lane0|Lane1)"
-        bias_match = re.search(r"Bias Current\(mA\)\s*:\s*([\d\.\|]+)\(Lane", output)
+        # 100GE multi-lane: "  Bias Current(mA)              :66.68|69.75(Lane0|Lane1)"
+        bias_multiline_pattern = r"Bias Current\(mA\)\s*:\s*([\d\.\|]+)\(Lane\d+\|Lane\d+\)\s*\n?\s*([\d\.\|]+)\(Lane\d+\|Lane\d+\)?"
+        bias_match = re.search(bias_multiline_pattern, output, re.MULTILINE)
         if bias_match:
-            bias_values = bias_match.group(1).split('|')
-            for i, value in enumerate(bias_values):
+            # Primeira linha de lanes
+            bias_values1 = bias_match.group(1).split('|')
+            for i, value in enumerate(bias_values1):
                 transceiver_data[f"bias_current_lane_{i}"] = value.strip()
-                if debug:
-                    print(f"DEBUG: {interface} bias current lane {i}: {value}mA")
+            # Segunda linha de lanes se existir
+            if bias_match.group(2):
+                bias_values2 = bias_match.group(2).split('|')
+                for i, value in enumerate(bias_values2, start=len(bias_values1)):
+                    transceiver_data[f"bias_current_lane_{i}"] = value.strip()
+        else:
+            # Fallback para linha única
+            bias_match = re.search(r"Bias Current\(mA\)\s*:\s*([\d\.\|]+)", output)
+            if bias_match and '|' in bias_match.group(1):
+                bias_values = bias_match.group(1).split('|')
+                for i, value in enumerate(bias_values):
+                    transceiver_data[f"bias_current_lane_{i}"] = value.strip()
     else:
-        # 10GE simples: "Bias Current(mA)              :7.23"
+        # XGE simples: "  Bias Current(mA)              :7.23"
         bias_match = re.search(r"Bias Current\(mA\)\s*:\s*(\d+\.?\d*)", output)
         if bias_match:
             transceiver_data["bias_current"] = bias_match.group(1)
     
-    # Parse TX power - pode ser simples ou multi-lane
+    # Parse TX power - formato melhorado
     if "100GE" in interface:
-        # 100GE: "TX Power(dBM)                 :1.38|1.49(Lane0|Lane1)"
-        tx_match = re.search(r"TX Power\(dBM\)\s*:\s*([\d\.\-\|]+)\(Lane", output)
+        # 100GE multi-lane: "  TX Power(dBM)                 :1.37|1.48(Lane0|Lane1)"
+        tx_multiline_pattern = r"TX Power\(dBM\)\s*:\s*([\d\.\-\|]+)\(Lane\d+\|Lane\d+\)\s*\n?\s*([\d\.\-\|]+)\(Lane\d+\|Lane\d+\)?"
+        tx_match = re.search(tx_multiline_pattern, output, re.MULTILINE)
         if tx_match:
-            tx_values = tx_match.group(1).split('|')
-            for i, value in enumerate(tx_values):
+            # Primeira linha
+            tx_values1 = tx_match.group(1).split('|')
+            for i, value in enumerate(tx_values1):
                 transceiver_data[f"tx_power_lane_{i}"] = value.strip()
-                if debug:
-                    print(f"DEBUG: {interface} TX power lane {i}: {value}dBm")
+            # Segunda linha se existir  
+            if tx_match.group(2):
+                tx_values2 = tx_match.group(2).split('|')
+                for i, value in enumerate(tx_values2, start=len(tx_values1)):
+                    transceiver_data[f"tx_power_lane_{i}"] = value.strip()
+        else:
+            # Fallback
+            tx_match = re.search(r"TX Power\(dBM\)\s*:\s*([\d\.\-\|]+)", output)
+            if tx_match and '|' in tx_match.group(1):
+                tx_values = tx_match.group(1).split('|')
+                for i, value in enumerate(tx_values):
+                    transceiver_data[f"tx_power_lane_{i}"] = value.strip()
     else:
-        # 10GE: "TX Power(dBM)                 :-2.26"
+        # XGE simples: "  TX Power(dBM)                 :-2.28"
         tx_match = re.search(r"TX Power\(dBM\)\s*:\s*([+-]?\d+\.?\d*)", output)
         if tx_match:
             transceiver_data["tx_power"] = tx_match.group(1)
     
-    # Parse RX power - pode ser simples ou multi-lane
+    # Parse RX power - formato melhorado
     if "100GE" in interface:
-        # 100GE: "RX Power(dBM)                 :-0.53|-1.21(Lane0|Lane1)"
-        rx_match = re.search(r"RX Power\(dBM\)\s*:\s*([\d\.\-\|]+)\(Lane", output)
+        # 100GE multi-lane: "  RX Power(dBM)                 :-0.50|-1.20(Lane0|Lane1)"
+        rx_multiline_pattern = r"RX Power\(dBM\)\s*:\s*([\d\.\-\|]+)\(Lane\d+\|Lane\d+\)\s*\n?\s*([\d\.\-\|]+)\(Lane\d+\|Lane\d+\)?"
+        rx_match = re.search(rx_multiline_pattern, output, re.MULTILINE)
         if rx_match:
-            rx_values = rx_match.group(1).split('|')
-            for i, value in enumerate(rx_values):
+            # Primeira linha
+            rx_values1 = rx_match.group(1).split('|')
+            for i, value in enumerate(rx_values1):
                 transceiver_data[f"rx_power_lane_{i}"] = value.strip()
-                if debug:
-                    print(f"DEBUG: {interface} RX power lane {i}: {value}dBm")
+            # Segunda linha se existir
+            if rx_match.group(2):
+                rx_values2 = rx_match.group(2).split('|')
+                for i, value in enumerate(rx_values2, start=len(rx_values1)):
+                    transceiver_data[f"rx_power_lane_{i}"] = value.strip()
+        else:
+            # Fallback
+            rx_match = re.search(r"RX Power\(dBM\)\s*:\s*([\d\.\-\|]+)", output)
+            if rx_match and '|' in rx_match.group(1):
+                rx_values = rx_match.group(1).split('|')
+                for i, value in enumerate(rx_values):
+                    transceiver_data[f"rx_power_lane_{i}"] = value.strip()
     else:
-        # 10GE: "RX Power(dBM)                 :-2.77"
+        # XGE simples: "  RX Power(dBM)                 :-2.75"
         rx_match = re.search(r"RX Power\(dBM\)\s*:\s*([+-]?\d+\.?\d*)", output)
         if rx_match:
             transceiver_data["rx_power"] = rx_match.group(1)
@@ -568,7 +619,8 @@ def launch_discovery_and_collect(ip, port, user, password, hostname, debug=False
     try:
         start_time = time.time()
         
-        print("DEBUG: Iniciando discovery e coleta SFP...")
+        if debug:
+            print("DEBUG: Iniciando discovery e coleta SFP...")
         
         # Limpa cache
         clear_cache()
@@ -576,16 +628,20 @@ def launch_discovery_and_collect(ip, port, user, password, hostname, debug=False
         # Cria uma única sessão SSH para todos os comandos
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        print(f"DEBUG: Conectando SSH em {ip}:{port}")
+        if debug:
+            print(f"DEBUG: Conectando SSH em {ip}:{port}")
         ssh.connect(ip, port=port, username=user, password=password, 
                    look_for_keys=False, timeout=5)
         
-        print("DEBUG: Conexão SSH estabelecida")
+        if debug:
+            print("DEBUG: Conexão SSH estabelecida")
         
         # Discovery SFP apenas - sem BGP, power, fans para otimizar
-        print("DEBUG: Obtendo lista de interfaces...")
+        if debug:
+            print("DEBUG: Obtendo lista de interfaces...")
         interfaces = get_interfaces(ip, port, user, password, ssh_client=ssh)
-        print(f"DEBUG: Interfaces obtidas: {len(interfaces)}")
+        if debug:
+            print(f"DEBUG: Interfaces obtidas: {len(interfaces)}")
         
         # Discovery de interfaces SFP
         discovery_sfp = []
