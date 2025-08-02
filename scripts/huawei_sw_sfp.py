@@ -19,8 +19,7 @@ import json
 import time
 import signal
 
-# Cache simples para evitar comandos duplicados
-command_cache = {}
+# Removido sistema de cache - execução direta
 
 def timeout_handler(signum, frame):
     """Handler para timeout geral"""
@@ -138,9 +137,8 @@ def ssh_command_simple(ip, port, user, password, command, debug=False):
         raise Exception(f"Erro SSH em '{command}': {str(e)}")
 
 def clear_cache():
-    """Limpa cache de comandos"""
-    global command_cache
-    command_cache.clear()
+    """Função mantida para compatibilidade - não faz nada"""
+    pass
 
 def send_zabbix_metric(hostname, key, value, timeout=3):
     """Envia metrica individual para Zabbix - OTIMIZADO"""
@@ -354,7 +352,7 @@ def get_version_info(ip, port, user, password, debug=False):
     
     return version_data
 
-def get_interfaces(ip, port, user, password, ssh_client=None):
+def get_interfaces(ip, port, user, password):
     """Obtem interfaces com descrição"""
     output = ssh_command_simple(ip, port, user, password, "display interface description")
     
@@ -386,7 +384,7 @@ def get_interfaces(ip, port, user, password, ssh_client=None):
     
     return interfaces
 
-def get_transceiver_info(ip, port, user, password, interface, debug=False, ssh_client=None):
+def get_transceiver_info(ip, port, user, password, interface, debug=False):
     """Obtem informações detalhadas do transceiver para uma interface específica"""
     try:
         # Tenta primeiro comando verbose
