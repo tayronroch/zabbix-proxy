@@ -15,12 +15,38 @@ def minimal_test(ip, port, user, password, hostname):
         
         print("Conectado! Executando comandos...")
         
-        # Teste comandos corretos para este modelo de switch
-        cmd = "screen-length 0 temporary\ndisplay interface brief"
-        stdin, stdout, stderr = ssh.exec_command(cmd, timeout=30)
+        # Teste comandos básicos conhecidos
+        comandos_teste = [
+            "screen-length disable",
+            "terminal length 0", 
+            "display interface",
+            "show interface",
+            "display ip interface brief",
+            "show ip interface brief"
+        ]
         
-        # Lê saída
-        output = stdout.read().decode('utf-8', errors='ignore')
+        output_completo = ""
+        
+        for cmd in comandos_teste:
+            print(f"Testando comando: {cmd}")
+            try:
+                stdin, stdout, stderr = ssh.exec_command(cmd, timeout=10)
+                saida = stdout.read().decode('utf-8', errors='ignore')
+                if "Error:" not in saida and "Unrecognized" not in saida:
+                    print(f"✅ SUCESSO: {cmd}")
+                    output_completo += f"\n=== {cmd} ===\n{saida}\n"
+                    if "interface" in cmd.lower():
+                        output = saida  # Guarda a saída do comando de interface que funcionou
+                        break
+                else:
+                    print(f"❌ FALHOU: {cmd}")
+            except Exception as e:
+                print(f"❌ ERRO: {cmd} - {e}")
+            time.sleep(0.5)
+        
+        print(f"\n=== SAÍDA FINAL SELECIONADA ===")
+        if 'output' not in locals():
+            output = output_completo
         print(f"Saída recebida: {len(output)} chars")
         print("=== SAÍDA COMPLETA ===")
         print(output)
