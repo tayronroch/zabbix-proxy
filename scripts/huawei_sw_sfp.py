@@ -580,13 +580,37 @@ def main():
             print("Uso: huawei_sw_sfp.py launch_discovery <ip> <port> <user> <password> <hostname> [debug]", file=sys.stderr)
             sys.exit(1)
         _, _, ip, port, user, password, hostname = sys.argv[:7]
-        launch_discovery_and_collect(ip, int(port), user, password, hostname, debug)
+        
+        # Validação de parâmetros - verifica se macros foram substituídas
+        if port.startswith('{$') or user.startswith('{$') or password.startswith('{$'):
+            print("ERRO: Macros não foram substituídas pelo Zabbix. Verifique se {$SSH_PORT}, {$SSH_USER} e {$SSH_PASS} estão definidas no template.", file=sys.stderr)
+            sys.exit(1)
+        
+        try:
+            port_int = int(port)
+        except ValueError:
+            print(f"ERRO: Porta SSH inválida: '{port}'. Deve ser um número.", file=sys.stderr)
+            sys.exit(1)
+            
+        launch_discovery_and_collect(ip, port_int, user, password, hostname, debug)
     elif mode == "collect":
         if len(sys.argv) < 7:
             print("Uso: huawei_sw_sfp.py collect <ip> <port> <user> <password> <hostname> [debug]", file=sys.stderr)
             sys.exit(1)
         _, _, ip, port, user, password, hostname = sys.argv[:7]
-        collect(ip, int(port), user, password, hostname, debug)
+        
+        # Validação de parâmetros - verifica se macros foram substituídas
+        if port.startswith('{$') or user.startswith('{$') or password.startswith('{$'):
+            print("ERRO: Macros não foram substituídas pelo Zabbix. Verifique se {$SSH_PORT}, {$SSH_USER} e {$SSH_PASS} estão definidas no template.", file=sys.stderr)
+            sys.exit(1)
+        
+        try:
+            port_int = int(port)
+        except ValueError:
+            print(f"ERRO: Porta SSH inválida: '{port}'. Deve ser um número.", file=sys.stderr)
+            sys.exit(1)
+            
+        collect(ip, port_int, user, password, hostname, debug)
     else:
         print("ERRO: Modo desconhecido. Use launch_discovery ou collect.", file=sys.stderr)
         sys.exit(2)

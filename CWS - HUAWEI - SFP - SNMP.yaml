@@ -497,5 +497,11 @@ zabbix_export:
       macros:
         - macro: '{$ATTENUATIONFACTOR}'
           value: '-2'
+        - macro: '{$SSH_PASS}'
+          value: 'admin'
+        - macro: '{$SSH_PORT}'
+          value: '22'
+        - macro: '{$SSH_USER}'
+          value: 'admin'
         - macro: '{$TRANSCEIVER_TEMP_WARN}'
           value: '70'
