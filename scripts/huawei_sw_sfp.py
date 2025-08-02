@@ -809,7 +809,7 @@ def launch_discovery_and_collect(ip, port, user, password, hostname, debug=False
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh.connect(ip, port=port, username=user, password=password, 
-                       look_for_keys=False, timeout=5)
+                       look_for_keys=False, timeout=3, banner_timeout=5)
             
             # Comando combinado exatamente como você pediu
             full_command = """screen-length 0 temporary
@@ -819,7 +819,7 @@ display transceiver verbose"""
             if debug:
                 print("DEBUG: Executando comando combinado...")
             
-            _, stdout, stderr = ssh.exec_command(full_command, timeout=20)
+            _, stdout, stderr = ssh.exec_command(full_command, timeout=15)
             raw_output = stdout.read()
             
             try:
@@ -955,13 +955,18 @@ display transceiver verbose"""
                     "-o", json.dumps({"data": discovery_multi})
                 ], capture_output=True, timeout=5, text=True)
             
-            if debug:
-                print(f"DEBUG: Discovery sender result: {discovery_result.returncode}")
-                print(f"DEBUG: Discovery sender stdout: {discovery_result.stdout}")
-                print(f"DEBUG: Discovery sender stderr: {discovery_result.stderr}")
-            
-            if discovery_result.returncode != 0:
-                print(f"AVISO: Discovery pode ter falhado: {discovery_result.stderr}")
+            # Debug do último discovery executado
+            if 'discovery_result' in locals():
+                if debug:
+                    print(f"DEBUG: Discovery sender result: {discovery_result.returncode}")
+                    print(f"DEBUG: Discovery sender stdout: {discovery_result.stdout}")
+                    print(f"DEBUG: Discovery sender stderr: {discovery_result.stderr}")
+                
+                if discovery_result.returncode != 0:
+                    print(f"AVISO: Discovery pode ter falhado: {discovery_result.stderr}")
+            else:
+                if debug:
+                    print("DEBUG: Nenhum discovery foi executado")
             
             # Aguarda um pouco para o Zabbix processar o discovery
             if debug:
