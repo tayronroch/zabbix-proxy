@@ -103,27 +103,17 @@ def ssh_execute_commands_batch(ip, port, user, password, commands, debug=False):
             print(f"DEBUG: Erro SSH batch: {str(e)}")
         raise Exception(f"Erro SSH em batch: {str(e)}")
 
-def ssh_command_with_cache(ip, port, user, password, command, debug=False, ssh_client=None):
-    """Executa comando SSH com cache - COMPATIBILIDADE"""
-    global command_cache
-    
-    # Verifica cache primeiro
-    cache_key = f"{ip}:{port}:{command}"
-    if cache_key in command_cache:
-        if debug:
-            print(f"DEBUG: Cache hit para '{command}'")
-        return command_cache[cache_key]
-    
-    # Executa comando individual (fallback)
+def ssh_command_simple(ip, port, user, password, command, debug=False):
+    """Executa comando SSH simples sem cache"""
     ssh = None
     try:
         if debug:
-            print(f"DEBUG: Executando comando SSH individual: '{command}'")
+            print(f"DEBUG: Executando comando SSH: '{command}'")
         
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh.connect(ip, port=port, username=user, password=password, 
-                   look_for_keys=False, timeout=5)
+                   look_for_keys=False, timeout=3, banner_timeout=5)
         
         full_command = f"screen-length 0 temporary; {command}"
         _, stdout, stderr = ssh.exec_command(full_command, timeout=8)
@@ -135,9 +125,6 @@ def ssh_command_with_cache(ip, port, user, password, command, debug=False, ssh_c
             output = raw.decode("latin1")
         
         ssh.close()
-        
-        # Armazena no cache
-        command_cache[cache_key] = output
         return output
         
     except Exception as e:
@@ -168,7 +155,7 @@ def send_zabbix_metric(hostname, key, value, timeout=3):
 
 def get_bgp_peers_ipv4(ip, port, user, password, debug=False):
     """Obtem peers BGP IPv4"""
-    output = ssh_command_with_cache(ip, port, user, password, "display bgp peer verbose", debug)
+    output = ssh_command_simple(ip, port, user, password, "display bgp peer verbose", debug)
     
     peers = {}
     current_peer = None
@@ -212,7 +199,7 @@ def get_bgp_peers_ipv4(ip, port, user, password, debug=False):
 
 def get_bgp_peers_ipv6(ip, port, user, password, debug=False):
     """Obtem peers BGP IPv6"""
-    output = ssh_command_with_cache(ip, port, user, password, "display bgp ipv6 peer verbose", debug)
+    output = ssh_command_simple(ip, port, user, password, "display bgp ipv6 peer verbose", debug)
     
     peers = {}
     current_peer = None
@@ -257,8 +244,8 @@ def get_bgp_peers_ipv6(ip, port, user, password, debug=False):
 
 def get_power_info(ip, port, user, password, debug=False):
     """Obtem informações de energia"""
-    output = ssh_command_with_cache(ip, port, user, password, "display power", debug)
-    power_mgmt = ssh_command_with_cache(ip, port, user, password, "display power manage power-information", debug)
+    output = ssh_command_simple(ip, port, user, password, "display power", debug)
+    power_mgmt = ssh_command_simple(ip, port, user, password, "display power manage power-information", debug)
     
     power_data = {}
     
@@ -302,7 +289,7 @@ def get_power_info(ip, port, user, password, debug=False):
 
 def get_fan_info(ip, port, user, password, debug=False):
     """Obtem informações dos ventiladores"""
-    output = ssh_command_with_cache(ip, port, user, password, "display fan", debug)
+    output = ssh_command_simple(ip, port, user, password, "display fan", debug)
     
     fans = {}
     
@@ -328,7 +315,7 @@ def get_fan_info(ip, port, user, password, debug=False):
 
 def get_version_info(ip, port, user, password, debug=False):
     """Obtem informações de versão"""
-    output = ssh_command_with_cache(ip, port, user, password, "display version", debug)
+    output = ssh_command_simple(ip, port, user, password, "display version", debug)
     
     version_data = {}
     
@@ -369,7 +356,7 @@ def get_version_info(ip, port, user, password, debug=False):
 
 def get_interfaces(ip, port, user, password, ssh_client=None):
     """Obtem interfaces com descrição"""
-    output = ssh_command_with_cache(ip, port, user, password, "display interface description")
+    output = ssh_command_simple(ip, port, user, password, "display interface description")
     
     interfaces = {}
     for line in output.splitlines():
@@ -403,13 +390,13 @@ def get_transceiver_info(ip, port, user, password, interface, debug=False, ssh_c
     """Obtem informações detalhadas do transceiver para uma interface específica"""
     try:
         # Tenta primeiro comando verbose
-        output = ssh_command_with_cache(ip, port, user, password, f"display transceiver verbose interface {interface}", debug)
+        output = ssh_command_simple(ip, port, user, password, f"display transceiver verbose interface {interface}", debug)
     except Exception as e:
         if debug:
             print(f"DEBUG: Comando verbose falhou para {interface}: {str(e)}")
         try:
             # Fallback para comando simples
-            output = ssh_command_with_cache(ip, port, user, password, f"display transceiver interface {interface}", debug)
+            output = ssh_command_simple(ip, port, user, password, f"display transceiver interface {interface}", debug)
             if debug:
                 print(f"DEBUG: Usando comando simples para {interface}")
         except Exception as e2:
