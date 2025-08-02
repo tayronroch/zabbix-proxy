@@ -42,12 +42,9 @@ def ssh_command_with_cache(ip, port, user, password, command, debug=False):
         ssh.connect(ip, port=port, username=user, password=password, 
                    look_for_keys=False, timeout=15)
         
-        # Configura screen-length 0 primeiro
-        ssh.exec_command("screen-length 0 temporary", timeout=10)
-        time.sleep(0.5)  # Aguarda configuração
-        
-        # Executa comando normalmente - screen-length 0 já foi configurado
-        _, stdout, _ = ssh.exec_command(command, timeout=30)
+        # Configura screen-length 0 e executa comando em uma única sessão
+        full_command = f"screen-length 0 temporary\n{command}"
+        _, stdout, _ = ssh.exec_command(full_command, timeout=30)
         raw = stdout.read()
         try:
             output = raw.decode("utf-8")

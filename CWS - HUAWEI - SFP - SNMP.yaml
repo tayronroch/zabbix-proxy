@@ -1,0 +1,501 @@
+zabbix_export:
+  version: '7.0'
+  template_groups:
+    - uuid: e3454865f3824ac3b20e5022cbdaf1e1
+      name: 'CWS Templates'
+    - uuid: 950009e89a5745dea074690688766694
+      name: HUAWEI
+  templates:
+    - uuid: cf19e0b0b324491f8b3f3ef5302958b3
+      template: 'CWS - HUAWEI - SFP - SNMP'
+      name: 'CWS - HUAWEI - SFP - SNMP'
+      description: 'CWS - HW - T63 - 4.3.2'
+      groups:
+        - name: 'CWS Templates'
+        - name: HUAWEI
+      items:
+        - uuid: d797ce3d5ccc4561b54225340f58db2b
+          name: 'Tempo de Resposta da Função: discovery (SFP)'
+          type: TRAP
+          key: benchmark_discovery
+          delay: '0'
+          history: 90d
+          value_type: FLOAT
+          units: s
+          tags:
+            - tag: Application
+              value: Script
+          triggers:
+            - uuid: 4e1aa76b23174de59fb9e22e89d73b55
+              expression: 'last(/CWS - HUAWEI - SFP - SNMP/benchmark_discovery)>=300'
+              name: 'Tempo de Resposta da Função: "discovery" (SFP) acima de 5 minutos!'
+              status: DISABLED
+              priority: INFO
+              manual_close: 'YES'
+        - uuid: 2549b3f2a50245afa0209c11312b74db
+          name: GBIC
+          type: EXTERNAL
+          key: 'huawei_sw_sfp.py["launch_discovery", {HOST.CONN}, {$SSH_PORT}, {$SSH_USER}, {$SSH_PASS}, {HOST.NAME}]'
+          delay: 5m
+          history: 90d
+          value_type: CHAR
+          trends: '0'
+          tags:
+            - tag: Application
+              value: Script
+      discovery_rules:
+        - uuid: cee3a8a6c7fb4b2cab7780d4408fb63c
+          name: 'GBIC Multi Lane'
+          type: TRAP
+          key: discovery_gbic_multi
+          delay: '0'
+          lifetime: 3d
+          enabled_lifetime_type: DISABLE_NEVER
+          item_prototypes:
+            - uuid: 33b53ceba08d4559bc64b3d1c19fb3d1
+              name: 'Corrente na Interface {#IFNAME} - {#IFALIAS} - {#GBIC_LANE}'
+              type: TRAP
+              key: 'currML[{#IFNAME},{#GBIC_LANE}]'
+              delay: '0'
+              history: 10d
+              value_type: FLOAT
+              units: mA
+              tags:
+                - tag: Application
+                  value: GBIC
+            - uuid: e4833df3b4ff4cf588d944a1b2c0ce4a
+              name: 'Potência Recebida (RX) na Interface {#IFNAME} - {#IFALIAS} - {#GBIC_LANE}'
+              type: TRAP
+              key: 'rxpowerML[{#IFNAME},{#GBIC_LANE}]'
+              delay: '0'
+              history: 10d
+              value_type: FLOAT
+              units: dBm
+              tags:
+                - tag: Application
+                  value: GBIC
+            - uuid: b06a6630e01041a2bf91a91fc64dbec4
+              name: 'Status Shutdown {#IFNAME} - {#IFALIAS}  - {#GBIC_LANE}'
+              type: TRAP
+              key: 'statusShutdownML[{#IFNAME},{#GBIC_LANE}]'
+              delay: '0'
+              history: 10d
+              tags:
+                - tag: Application
+                  value: GBIC
+              trigger_prototypes:
+                - uuid: f9752aa65e01455e996cbdfec9192878
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}])=1'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}])=0 or min(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}],2d)=1'
+                  name: 'SHUTDOWN de módulo SFP na Interface {#IFNAME} - {#IFALIAS}'
+                  status: DISABLED
+                  discover: NO_DISCOVER
+                  priority: WARNING
+            - uuid: 9d318c33060c4f47b3c1fde7beb6fae4
+              name: 'Temperatura na Interface {#IFNAME} - {#IFALIAS} - {#GBIC_LANE}'
+              type: TRAP
+              key: 'tempML[{#IFNAME},{#GBIC_LANE}]'
+              delay: '0'
+              history: 10d
+              value_type: FLOAT
+              units: °C
+              tags:
+                - tag: Application
+                  value: GBIC
+            - uuid: f6aec80221b847d987c3eb5fbfe50919
+              name: 'Potência Transmitida (TX) na Interface {#IFNAME} - {#IFALIAS} - {#GBIC_LANE}'
+              type: TRAP
+              key: 'txpowerML[{#IFNAME},{#GBIC_LANE}]'
+              delay: '0'
+              history: 10d
+              value_type: FLOAT
+              units: dBm
+              tags:
+                - tag: Application
+                  value: GBIC
+            - uuid: 5c82d867e4234ab6a8c12951ab4017c1
+              name: 'Tensão na Interface {#IFNAME} - {#IFALIAS} - {#GBIC_LANE}'
+              type: TRAP
+              key: 'voltML[{#IFNAME},{#GBIC_LANE}]'
+              delay: '0'
+              history: 10d
+              value_type: FLOAT
+              units: V
+              tags:
+                - tag: Application
+                  value: GBIC
+          trigger_prototypes:
+            - uuid: 12e86080ecd141b48f2f7070364ec042
+              expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpowerML[{#IFNAME},{#GBIC_LANE}]) >= {#RX_POWER_HIGH_WRN} and last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}]) <> 1'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpowerML[{#IFNAME},{#GBIC_LANE}]) < {#RX_POWER_HIGH_WRN}'
+              name: 'Potência Recebida (RX) Alta na Interface {#IFNAME} - {#IFALIAS} - {#GBIC_LANE} | Limiar: {#RX_POWER_HIGH_WRN} dBm | Potência Atual: {ITEM.VALUE} dBm'
+              status: DISABLED
+              discover: NO_DISCOVER
+              priority: AVERAGE
+              dependencies:
+                - name: 'Potência Recebida (RX) Criticamente Alta na Interface {#IFNAME} - {#IFALIAS} - {#GBIC_LANE} | Limiar: {#RX_POWER_HIGH_TRH} dBm | Potência Atual: {ITEM.VALUE} dBm'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpowerML[{#IFNAME},{#GBIC_LANE}]) >= {#RX_POWER_HIGH_TRH} and last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}]) <> 1'
+                  recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpowerML[{#IFNAME},{#GBIC_LANE}]) < {#RX_POWER_HIGH_TRH}'
+                - name: 'Queda de módulo SFP na Interface {#IFNAME} - {#IFALIAS} - {#GBIC_LANE}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpowerML[{#IFNAME},{#GBIC_LANE}])=-40 and last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}])<>1'
+                - name: 'SHUTDOWN de módulo SFP na Interface {#IFNAME} - {#IFALIAS}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}])=1'
+                  recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}])=0 or min(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}],2d)=1'
+            - uuid: 4452699b963444a29689a9f489c65d84
+              expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpowerML[{#IFNAME},{#GBIC_LANE}]) <= {#RX_POWER_LOW_WRN} and last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}]) <> 1 and last(/CWS - HUAWEI - SFP - SNMP/rxpowerML[{#IFNAME},{#GBIC_LANE}]) > -40'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpowerML[{#IFNAME},{#GBIC_LANE}]) > {#RX_POWER_LOW_WRN}'
+              name: 'Potência Recebida (RX) Baixa na Interface {#IFNAME} - {#IFALIAS} - {#GBIC_LANE} | Limiar: {#RX_POWER_LOW_WRN} dBm | Potência Atual: {ITEM.VALUE} dBm'
+              status: DISABLED
+              discover: NO_DISCOVER
+              priority: AVERAGE
+              dependencies:
+                - name: 'Potência Recebida (RX) Criticamente Baixa na Interface {#IFNAME} - {#IFALIAS} - {#GBIC_LANE} | Limiar: {#RX_POWER_LOW_TRH} dBm | Potência Atual: {ITEM.VALUE} dBm'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpowerML[{#IFNAME},{#GBIC_LANE}]) <= {#RX_POWER_LOW_TRH} and last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}]) <> 1 and last(/CWS - HUAWEI - SFP - SNMP/rxpowerML[{#IFNAME},{#GBIC_LANE}]) > -40'
+                  recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpowerML[{#IFNAME},{#GBIC_LANE}]) > {#RX_POWER_LOW_TRH}'
+                - name: 'Queda de módulo SFP na Interface {#IFNAME} - {#IFALIAS} - {#GBIC_LANE}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpowerML[{#IFNAME},{#GBIC_LANE}])=-40 and last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}])<>1'
+                - name: 'SHUTDOWN de módulo SFP na Interface {#IFNAME} - {#IFALIAS}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}])=1'
+                  recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}])=0 or min(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}],2d)=1'
+            - uuid: 9631c7e179bb40d7a72cc44abb7e21d9
+              expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpowerML[{#IFNAME},{#GBIC_LANE}]) >= {#RX_POWER_HIGH_TRH} and last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}]) <> 1'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpowerML[{#IFNAME},{#GBIC_LANE}]) < {#RX_POWER_HIGH_TRH}'
+              name: 'Potência Recebida (RX) Criticamente Alta na Interface {#IFNAME} - {#IFALIAS} - {#GBIC_LANE} | Limiar: {#RX_POWER_HIGH_TRH} dBm | Potência Atual: {ITEM.VALUE} dBm'
+              status: DISABLED
+              discover: NO_DISCOVER
+              priority: HIGH
+              dependencies:
+                - name: 'Queda de módulo SFP na Interface {#IFNAME} - {#IFALIAS} - {#GBIC_LANE}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpowerML[{#IFNAME},{#GBIC_LANE}])=-40 and last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}])<>1'
+                - name: 'SHUTDOWN de módulo SFP na Interface {#IFNAME} - {#IFALIAS}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}])=1'
+                  recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}])=0 or min(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}],2d)=1'
+            - uuid: cc4725585b294df8bacfda0ee09719fc
+              expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpowerML[{#IFNAME},{#GBIC_LANE}]) <= {#RX_POWER_LOW_TRH} and last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}]) <> 1 and last(/CWS - HUAWEI - SFP - SNMP/rxpowerML[{#IFNAME},{#GBIC_LANE}]) > -40'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpowerML[{#IFNAME},{#GBIC_LANE}]) > {#RX_POWER_LOW_TRH}'
+              name: 'Potência Recebida (RX) Criticamente Baixa na Interface {#IFNAME} - {#IFALIAS} - {#GBIC_LANE} | Limiar: {#RX_POWER_LOW_TRH} dBm | Potência Atual: {ITEM.VALUE} dBm'
+              status: DISABLED
+              discover: NO_DISCOVER
+              priority: HIGH
+              dependencies:
+                - name: 'Queda de módulo SFP na Interface {#IFNAME} - {#IFALIAS} - {#GBIC_LANE}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpowerML[{#IFNAME},{#GBIC_LANE}])=-40 and last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}])<>1'
+                - name: 'SHUTDOWN de módulo SFP na Interface {#IFNAME} - {#IFALIAS}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}])=1'
+                  recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}])=0 or min(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}],2d)=1'
+            - uuid: a8d13ab325b84bc1990413a339823e62
+              expression: 'last(/CWS - HUAWEI - SFP - SNMP/txpowerML[{#IFNAME},{#GBIC_LANE}]) >= {#TX_POWER_HIGH_WRN} and last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}]) <> 1'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/txpowerML[{#IFNAME},{#GBIC_LANE}]) < {#TX_POWER_HIGH_WRN}'
+              name: 'Potência Transmitida (TX) Alta na Interface {#IFNAME} - {#IFALIAS} - {#GBIC_LANE} | Limiar: {#TX_POWER_HIGH_WRN} dBm | Potência Atual: {ITEM.VALUE} dBm'
+              status: DISABLED
+              discover: NO_DISCOVER
+              priority: AVERAGE
+              dependencies:
+                - name: 'Potência Recebida (RX) Criticamente Alta na Interface {#IFNAME} - {#IFALIAS} - {#GBIC_LANE} | Limiar: {#RX_POWER_HIGH_TRH} dBm | Potência Atual: {ITEM.VALUE} dBm'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpowerML[{#IFNAME},{#GBIC_LANE}]) >= {#RX_POWER_HIGH_TRH} and last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}]) <> 1'
+                  recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpowerML[{#IFNAME},{#GBIC_LANE}]) < {#RX_POWER_HIGH_TRH}'
+                - name: 'Queda de módulo SFP na Interface {#IFNAME} - {#IFALIAS} - {#GBIC_LANE}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpowerML[{#IFNAME},{#GBIC_LANE}])=-40 and last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}])<>1'
+                - name: 'SHUTDOWN de módulo SFP na Interface {#IFNAME} - {#IFALIAS}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}])=1'
+                  recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}])=0 or min(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}],2d)=1'
+            - uuid: 39d8e9c811334a0cab069e749e93675d
+              expression: 'last(/CWS - HUAWEI - SFP - SNMP/txpowerML[{#IFNAME},{#GBIC_LANE}]) <= {#TX_POWER_LOW_WRN} and last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}]) <> 1'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/txpowerML[{#IFNAME},{#GBIC_LANE}]) > {#TX_POWER_LOW_WRN}'
+              name: 'Potência Transmitida (TX) Baixa na Interface {#IFNAME} - {#IFALIAS} - {#GBIC_LANE} | Limiar: {#TX_POWER_LOW_WRN} dBm | Potência Atual: {ITEM.VALUE} dBm'
+              status: DISABLED
+              discover: NO_DISCOVER
+              priority: AVERAGE
+              dependencies:
+                - name: 'Potência Transmitida (TX) Criticamente Baixa na Interface {#IFNAME} - {#IFALIAS} - {#GBIC_LANE} | Limiar: {#TX_POWER_LOW_TRH} dBm | Potência Atual: {ITEM.VALUE} dBm'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/txpowerML[{#IFNAME},{#GBIC_LANE}]) <= {#TX_POWER_LOW_TRH} and last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}]) <> 1'
+                  recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/txpowerML[{#IFNAME},{#GBIC_LANE}]) > {#TX_POWER_LOW_TRH}'
+                - name: 'Queda de módulo SFP na Interface {#IFNAME} - {#IFALIAS} - {#GBIC_LANE}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpowerML[{#IFNAME},{#GBIC_LANE}])=-40 and last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}])<>1'
+                - name: 'SHUTDOWN de módulo SFP na Interface {#IFNAME} - {#IFALIAS}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}])=1'
+                  recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}])=0 or min(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}],2d)=1'
+            - uuid: 7f577816a3514dbda67ab6c8c3a65c44
+              expression: 'last(/CWS - HUAWEI - SFP - SNMP/txpowerML[{#IFNAME},{#GBIC_LANE}]) >= {#TX_POWER_HIGH_TRH} and last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}]) <> 1'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/txpowerML[{#IFNAME},{#GBIC_LANE}]) < {#TX_POWER_HIGH_TRH}'
+              name: 'Potência Transmitida (TX) Criticamente Alta na Interface {#IFNAME} - {#IFALIAS} - {#GBIC_LANE} | Limiar: {#TX_POWER_HIGH_TRH} dBm | Potência Atual: {ITEM.VALUE} dBm'
+              status: DISABLED
+              discover: NO_DISCOVER
+              priority: HIGH
+              dependencies:
+                - name: 'Queda de módulo SFP na Interface {#IFNAME} - {#IFALIAS} - {#GBIC_LANE}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpowerML[{#IFNAME},{#GBIC_LANE}])=-40 and last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}])<>1'
+                - name: 'SHUTDOWN de módulo SFP na Interface {#IFNAME} - {#IFALIAS}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}])=1'
+                  recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}])=0 or min(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}],2d)=1'
+            - uuid: 3a0573c921bc4938a3e4fb2e15cab67d
+              expression: 'last(/CWS - HUAWEI - SFP - SNMP/txpowerML[{#IFNAME},{#GBIC_LANE}]) <= {#TX_POWER_LOW_TRH} and last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}]) <> 1'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/txpowerML[{#IFNAME},{#GBIC_LANE}]) > {#TX_POWER_LOW_TRH}'
+              name: 'Potência Transmitida (TX) Criticamente Baixa na Interface {#IFNAME} - {#IFALIAS} - {#GBIC_LANE} | Limiar: {#TX_POWER_LOW_TRH} dBm | Potência Atual: {ITEM.VALUE} dBm'
+              status: DISABLED
+              discover: NO_DISCOVER
+              priority: HIGH
+              dependencies:
+                - name: 'Queda de módulo SFP na Interface {#IFNAME} - {#IFALIAS} - {#GBIC_LANE}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpowerML[{#IFNAME},{#GBIC_LANE}])=-40 and last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}])<>1'
+                - name: 'SHUTDOWN de módulo SFP na Interface {#IFNAME} - {#IFALIAS}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}])=1'
+                  recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}])=0 or min(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}],2d)=1'
+            - uuid: 1ececc06609445c39bde68009e05fb42
+              expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpowerML[{#IFNAME},{#GBIC_LANE}])=-40 and last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}])<>1'
+              name: 'Queda de módulo SFP na Interface {#IFNAME} - {#IFALIAS} - {#GBIC_LANE}'
+              status: DISABLED
+              discover: NO_DISCOVER
+              priority: HIGH
+              dependencies:
+                - name: 'SHUTDOWN de módulo SFP na Interface {#IFNAME} - {#IFALIAS}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}])=1'
+                  recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}])=0 or min(/CWS - HUAWEI - SFP - SNMP/statusShutdownML[{#IFNAME},{#GBIC_LANE}],2d)=1'
+        - uuid: e4e4c6a12b5e419b9da55842ac6bf948
+          name: 'GBIC Single Lane'
+          type: TRAP
+          key: discovery_gbic_single
+          delay: '0'
+          lifetime: 3d
+          enabled_lifetime_type: DISABLE_NEVER
+          item_prototypes:
+            - uuid: 164958df0bba40008e26ad02da1be990
+              name: 'Corrente na Interface {#IFNAME} - {#IFALIAS} - Ramo 1'
+              type: TRAP
+              key: 'curr[{#IFNAME}]'
+              delay: '0'
+              history: 10d
+              value_type: FLOAT
+              units: mA
+              tags:
+                - tag: Application
+                  value: GBIC
+            - uuid: e7285b4655e14974bb5379805d77bd68
+              name: 'Potência Recebida (RX) na Interface {#IFNAME} - {#IFALIAS} - Ramo 1'
+              type: TRAP
+              key: 'rxpower[{#IFNAME}]'
+              delay: '0'
+              history: 10d
+              value_type: FLOAT
+              units: dBm
+              tags:
+                - tag: Application
+                  value: GBIC
+            - uuid: bb44532e18b140b6aaee1f3bcf5c60c7
+              name: 'Status Shutdown {#IFNAME} - {#IFALIAS}'
+              type: TRAP
+              key: 'statusShutdown[{#IFNAME}]'
+              delay: '0'
+              history: 30d
+              tags:
+                - tag: Application
+                  value: GBIC
+              trigger_prototypes:
+                - uuid: 4ad0c0e706e54142a05ecc5f6ca1ac88
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}])=1'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: |
+                    last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}])=0
+                    and min(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}],2d)=1
+                  name: 'SHUTDOWN de módulo SFP na Interface {#IFNAME} - {#IFALIAS}'
+                  priority: WARNING
+            - uuid: c24c267b62b8402cb52bf0602de02f72
+              name: 'Temperatura na Interface {#IFNAME} - {#IFALIAS}'
+              type: TRAP
+              key: 'temp[{#IFNAME}]'
+              delay: '0'
+              history: 30d
+              value_type: FLOAT
+              units: °C
+              tags:
+                - tag: Application
+                  value: GBIC
+            - uuid: 368fac481d8545029a710a6a13095cc4
+              name: 'Potência Transmitida (TX) na Interface {#IFNAME} - {#IFALIAS} - Ramo 1'
+              type: TRAP
+              key: 'txpower[{#IFNAME}]'
+              delay: '0'
+              history: 10d
+              value_type: FLOAT
+              units: dBm
+              tags:
+                - tag: Application
+                  value: GBIC
+            - uuid: 83f3d8f8e9bd497185a311f59e6a1941
+              name: 'Tensão na Interface {#IFNAME} - {#IFALIAS}'
+              type: TRAP
+              key: 'volt[{#IFNAME}]'
+              delay: '0'
+              history: 10d
+              value_type: FLOAT
+              units: V
+              tags:
+                - tag: Application
+                  value: GBIC
+          trigger_prototypes:
+            - uuid: 6e2bdc206de54fce844007b3c64a2860
+              expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpower[{#IFNAME}]) >= {#RX_POWER_HIGH_WRN} and last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}]) <> 1'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpower[{#IFNAME}]) < {#RX_POWER_HIGH_WRN}'
+              name: 'Potência Recebida (RX) Alta na Interface {#IFNAME} - {#IFALIAS} | Limiar: {#RX_POWER_HIGH_WRN} dBm | Potência Atual: {ITEM.VALUE} dBm'
+              status: DISABLED
+              discover: NO_DISCOVER
+              priority: AVERAGE
+              dependencies:
+                - name: 'Potência Recebida (RX) Criticamente Alta na Interface {#IFNAME} - {#IFALIAS} | Limiar: {#RX_POWER_HIGH_TRH} dBm | Potência Atual: {ITEM.VALUE} dBm'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpower[{#IFNAME}]) >= {#RX_POWER_HIGH_TRH} and last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}]) <> 1'
+                  recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpower[{#IFNAME}]) < {#RX_POWER_HIGH_TRH}'
+                - name: 'Queda de módulo SFP na Interface {#IFNAME} - {#IFALIAS}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpower[{#IFNAME}])=-40 and last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}]) <> 1'
+                - name: 'SHUTDOWN de módulo SFP na Interface {#IFNAME} - {#IFALIAS}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}])=1'
+                  recovery_expression: |
+                    last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}])=0
+                    and min(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}],2d)=1
+            - uuid: ac2741cb6d3e4934ac69eae077c345ef
+              expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpower[{#IFNAME}]) <= {#RX_POWER_LOW_WRN} and last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}]) <> 1 and last(/CWS - HUAWEI - SFP - SNMP/rxpower[{#IFNAME}]) > -40'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpower[{#IFNAME}]) > {#RX_POWER_LOW_WRN}'
+              name: 'Potência Recebida (RX) Baixa na Interface {#IFNAME} - {#IFALIAS} | Limiar: {#RX_POWER_LOW_WRN} dBm | Potência Atual: {ITEM.VALUE} dBm'
+              status: DISABLED
+              discover: NO_DISCOVER
+              priority: AVERAGE
+              dependencies:
+                - name: 'Potência Recebida (RX) Criticamente Baixa na Interface {#IFNAME} - {#IFALIAS} | Limiar: {#RX_POWER_LOW_TRH} dBm | Potência Atual: {ITEM.VALUE} dBm'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpower[{#IFNAME}]) <= {#RX_POWER_LOW_TRH} and last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}]) <> 1 and last(/CWS - HUAWEI - SFP - SNMP/rxpower[{#IFNAME}]) > -40'
+                  recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpower[{#IFNAME}]) > {#RX_POWER_LOW_TRH}'
+                - name: 'Queda de módulo SFP na Interface {#IFNAME} - {#IFALIAS}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpower[{#IFNAME}])=-40 and last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}]) <> 1'
+                - name: 'SHUTDOWN de módulo SFP na Interface {#IFNAME} - {#IFALIAS}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}])=1'
+                  recovery_expression: |
+                    last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}])=0
+                    and min(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}],2d)=1
+            - uuid: 49a99dd6c75940fca4a57e5cc78eefe9
+              expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpower[{#IFNAME}]) >= {#RX_POWER_HIGH_TRH} and last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}]) <> 1'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpower[{#IFNAME}]) < {#RX_POWER_HIGH_TRH}'
+              name: 'Potência Recebida (RX) Criticamente Alta na Interface {#IFNAME} - {#IFALIAS} | Limiar: {#RX_POWER_HIGH_TRH} dBm | Potência Atual: {ITEM.VALUE} dBm'
+              status: DISABLED
+              discover: NO_DISCOVER
+              priority: HIGH
+              dependencies:
+                - name: 'Queda de módulo SFP na Interface {#IFNAME} - {#IFALIAS}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpower[{#IFNAME}])=-40 and last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}]) <> 1'
+                - name: 'SHUTDOWN de módulo SFP na Interface {#IFNAME} - {#IFALIAS}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}])=1'
+                  recovery_expression: |
+                    last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}])=0
+                    and min(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}],2d)=1
+            - uuid: 74cab71e9897425ead219bb8cc589b83
+              expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpower[{#IFNAME}]) <= {#RX_POWER_LOW_TRH} and last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}]) <> 1 and last(/CWS - HUAWEI - SFP - SNMP/rxpower[{#IFNAME}]) > -40'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpower[{#IFNAME}]) > {#RX_POWER_LOW_TRH}'
+              name: 'Potência Recebida (RX) Criticamente Baixa na Interface {#IFNAME} - {#IFALIAS} | Limiar: {#RX_POWER_LOW_TRH} dBm | Potência Atual: {ITEM.VALUE} dBm'
+              status: DISABLED
+              discover: NO_DISCOVER
+              priority: HIGH
+              dependencies:
+                - name: 'Queda de módulo SFP na Interface {#IFNAME} - {#IFALIAS}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpower[{#IFNAME}])=-40 and last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}]) <> 1'
+                - name: 'SHUTDOWN de módulo SFP na Interface {#IFNAME} - {#IFALIAS}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}])=1'
+                  recovery_expression: |
+                    last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}])=0
+                    and min(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}],2d)=1
+            - uuid: 440c5cd64e3e487fbf0238f4624f2fdd
+              expression: 'last(/CWS - HUAWEI - SFP - SNMP/txpower[{#IFNAME}]) >= {#TX_POWER_HIGH_WRN} and last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}]) <> 1'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/txpower[{#IFNAME}]) < {#TX_POWER_HIGH_WRN}'
+              name: 'Potência Transmitida (TX) Alta na Interface {#IFNAME} - {#IFALIAS} | Limiar: {#TX_POWER_HIGH_WRN} dBm | Potência Atual: {ITEM.VALUE} dBm'
+              status: DISABLED
+              discover: NO_DISCOVER
+              priority: AVERAGE
+              dependencies:
+                - name: 'Potência Transmitida (TX) Criticamente Alta na Interface {#IFNAME} - {#IFALIAS} | Limiar: {#TX_POWER_HIGH_TRH} dBm | Potência Atual: {ITEM.VALUE} dBm'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/txpower[{#IFNAME}]) >= {#TX_POWER_HIGH_TRH} and last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}]) <> 1'
+                  recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/txpower[{#IFNAME}]) < {#TX_POWER_HIGH_TRH}'
+                - name: 'Queda de módulo SFP na Interface {#IFNAME} - {#IFALIAS}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpower[{#IFNAME}])=-40 and last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}]) <> 1'
+                - name: 'SHUTDOWN de módulo SFP na Interface {#IFNAME} - {#IFALIAS}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}])=1'
+                  recovery_expression: |
+                    last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}])=0
+                    and min(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}],2d)=1
+            - uuid: df4017f07499475787c8b44f78b11fc4
+              expression: 'last(/CWS - HUAWEI - SFP - SNMP/txpower[{#IFNAME}]) <= {#TX_POWER_LOW_WRN} and last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}]) <> 1'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/txpower[{#IFNAME}]) > {#TX_POWER_LOW_WRN}'
+              name: 'Potência Transmitida (TX) Baixa na Interface {#IFNAME} - {#IFALIAS} | Limiar: {#TX_POWER_LOW_WRN} dBm | Potência Atual: {ITEM.VALUE} dBm'
+              status: DISABLED
+              discover: NO_DISCOVER
+              priority: AVERAGE
+              dependencies:
+                - name: 'Potência Transmitida (TX) Criticamente Baixa na Interface {#IFNAME} - {#IFALIAS} | Limiar: {#TX_POWER_LOW_TRH} dBm | Potência Atual: {ITEM.VALUE} dBm'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/txpower[{#IFNAME}]) <= {#TX_POWER_LOW_TRH} and last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}]) <> 1'
+                  recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/txpower[{#IFNAME}]) > {#TX_POWER_LOW_TRH}'
+                - name: 'Queda de módulo SFP na Interface {#IFNAME} - {#IFALIAS}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpower[{#IFNAME}])=-40 and last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}]) <> 1'
+                - name: 'SHUTDOWN de módulo SFP na Interface {#IFNAME} - {#IFALIAS}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}])=1'
+                  recovery_expression: |
+                    last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}])=0
+                    and min(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}],2d)=1
+            - uuid: 87a5d4a3bfb4483ca9de9bfb676219fb
+              expression: 'last(/CWS - HUAWEI - SFP - SNMP/txpower[{#IFNAME}]) >= {#TX_POWER_HIGH_TRH} and last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}]) <> 1'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/txpower[{#IFNAME}]) < {#TX_POWER_HIGH_TRH}'
+              name: 'Potência Transmitida (TX) Criticamente Alta na Interface {#IFNAME} - {#IFALIAS} | Limiar: {#TX_POWER_HIGH_TRH} dBm | Potência Atual: {ITEM.VALUE} dBm'
+              status: DISABLED
+              discover: NO_DISCOVER
+              priority: HIGH
+              dependencies:
+                - name: 'Queda de módulo SFP na Interface {#IFNAME} - {#IFALIAS}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpower[{#IFNAME}])=-40 and last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}]) <> 1'
+                - name: 'SHUTDOWN de módulo SFP na Interface {#IFNAME} - {#IFALIAS}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}])=1'
+                  recovery_expression: |
+                    last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}])=0
+                    and min(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}],2d)=1
+            - uuid: 7e480bcd667d45369357a5195262f9ae
+              expression: 'last(/CWS - HUAWEI - SFP - SNMP/txpower[{#IFNAME}]) <= {#TX_POWER_LOW_TRH} and last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}]) <> 1'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'last(/CWS - HUAWEI - SFP - SNMP/txpower[{#IFNAME}]) > {#TX_POWER_LOW_TRH}'
+              name: 'Potência Transmitida (TX) Criticamente Baixa na Interface {#IFNAME} - {#IFALIAS} | Limiar: {#TX_POWER_LOW_TRH} dBm | Potência Atual: {ITEM.VALUE} dBm'
+              status: DISABLED
+              discover: NO_DISCOVER
+              priority: HIGH
+              dependencies:
+                - name: 'Queda de módulo SFP na Interface {#IFNAME} - {#IFALIAS}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpower[{#IFNAME}])=-40 and last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}]) <> 1'
+                - name: 'SHUTDOWN de módulo SFP na Interface {#IFNAME} - {#IFALIAS}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}])=1'
+                  recovery_expression: |
+                    last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}])=0
+                    and min(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}],2d)=1
+            - uuid: c6309c41f25644aa8d4b9e418a014aec
+              expression: 'last(/CWS - HUAWEI - SFP - SNMP/rxpower[{#IFNAME}])=-40 and last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}]) <> 1'
+              name: 'Queda de módulo SFP na Interface {#IFNAME} - {#IFALIAS}'
+              status: DISABLED
+              discover: NO_DISCOVER
+              priority: HIGH
+              dependencies:
+                - name: 'SHUTDOWN de módulo SFP na Interface {#IFNAME} - {#IFALIAS}'
+                  expression: 'last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}])=1'
+                  recovery_expression: |
+                    last(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}])=0
+                    and min(/CWS - HUAWEI - SFP - SNMP/statusShutdown[{#IFNAME}],2d)=1
+      macros:
+        - macro: '{$ATTENUATIONFACTOR}'
+          value: '-2'
+        - macro: '{$TRANSCEIVER_TEMP_WARN}'
+          value: '70'
