@@ -58,10 +58,27 @@ def ssh_command_with_cache(ip, port, user, password, command, debug=False, ssh_c
         else:
             ssh = ssh_client
         
-        # Configura screen-length 0 e executa comando otimizado
-        full_command = f"screen-length 0 temporary; {command}"
-        _, stdout, _ = ssh.exec_command(full_command, timeout=8)
-        raw = stdout.read()
+        # Executa comando com retry em caso de falha
+        retries = 2
+        for attempt in range(retries):
+            try:
+                # Configura screen-length 0 e executa comando otimizado
+                full_command = f"screen-length 0 temporary; {command}"
+                _, stdout, stderr = ssh.exec_command(full_command, timeout=8)
+                raw = stdout.read()
+                error_output = stderr.read().decode('utf-8', errors='ignore')
+                
+                if debug and error_output:
+                    print(f"DEBUG: SSH stderr: {error_output[:200]}")
+                
+                break  # Sucesso, sai do loop
+            except Exception as retry_e:
+                if debug:
+                    print(f"DEBUG: Tentativa {attempt + 1} falhou: {str(retry_e)}")
+                if attempt == retries - 1:  # Última tentativa
+                    raise retry_e
+                time.sleep(0.5)  # Pequeno delay antes de tentar novamente
+        
         try:
             output = raw.decode("utf-8")
         except UnicodeDecodeError:
@@ -324,7 +341,21 @@ def get_interfaces(ip, port, user, password, ssh_client=None):
 
 def get_transceiver_info(ip, port, user, password, interface, debug=False, ssh_client=None):
     """Obtem informações detalhadas do transceiver para uma interface específica"""
-    output = ssh_command_with_cache(ip, port, user, password, f"display transceiver verbose interface {interface}", debug, ssh_client=ssh_client)
+    try:
+        # Tenta primeiro comando verbose
+        output = ssh_command_with_cache(ip, port, user, password, f"display transceiver verbose interface {interface}", debug, ssh_client=ssh_client)
+    except Exception as e:
+        if debug:
+            print(f"DEBUG: Comando verbose falhou para {interface}: {str(e)}")
+        try:
+            # Fallback para comando simples
+            output = ssh_command_with_cache(ip, port, user, password, f"display transceiver interface {interface}", debug, ssh_client=ssh_client)
+            if debug:
+                print(f"DEBUG: Usando comando simples para {interface}")
+        except Exception as e2:
+            if debug:
+                print(f"DEBUG: Ambos comandos falharam para {interface}: {str(e2)}")
+            return {}
     
     transceiver_data = {}
     
@@ -537,8 +568,7 @@ def launch_discovery_and_collect(ip, port, user, password, hostname, debug=False
     try:
         start_time = time.time()
         
-        if debug:
-            print("DEBUG: Iniciando discovery e coleta SFP...")
+        print("DEBUG: Iniciando discovery e coleta SFP...")
         
         # Limpa cache
         clear_cache()
@@ -546,14 +576,16 @@ def launch_discovery_and_collect(ip, port, user, password, hostname, debug=False
         # Cria uma única sessão SSH para todos os comandos
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        print(f"DEBUG: Conectando SSH em {ip}:{port}")
         ssh.connect(ip, port=port, username=user, password=password, 
                    look_for_keys=False, timeout=5)
         
-        if debug:
-            print("DEBUG: Conexão SSH estabelecida")
+        print("DEBUG: Conexão SSH estabelecida")
         
         # Discovery SFP apenas - sem BGP, power, fans para otimizar
+        print("DEBUG: Obtendo lista de interfaces...")
         interfaces = get_interfaces(ip, port, user, password, ssh_client=ssh)
+        print(f"DEBUG: Interfaces obtidas: {len(interfaces)}")
         
         # Discovery de interfaces SFP
         discovery_sfp = []
@@ -574,9 +606,16 @@ def launch_discovery_and_collect(ip, port, user, password, hostname, debug=False
         error_count = 0
         metrics_batch = []
         
+        if debug:
+            print(f"DEBUG: Encontradas {len(interfaces)} interfaces: {list(interfaces.keys())}")
+        
         for ifname in interfaces.keys():
             try:
+                if debug:
+                    print(f"DEBUG: Coletando transceiver para {ifname}")
                 transceiver_data = get_transceiver_info(ip, port, user, password, ifname, debug, ssh_client=ssh)
+                if debug:
+                    print(f"DEBUG: Interface {ifname} - coletadas {len(transceiver_data)} métricas")
                 for metric, value in transceiver_data.items():
                     key = f"interface.sfp.{metric}[{ifname}]"
                     metrics_batch.append(f"{hostname} {key} {value}")
@@ -584,6 +623,8 @@ def launch_discovery_and_collect(ip, port, user, password, hostname, debug=False
             except Exception as ex:
                 if debug:
                     print(f"DEBUG: Erro coletando transceiver {ifname}: {str(ex)}")
+                    import traceback
+                    traceback.print_exc()
                 error_count += 1
         
         # Fecha conexão SSH antes de enviar métricas
